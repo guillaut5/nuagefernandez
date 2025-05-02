@@ -1,0 +1,6 @@
+/.vscode
+/db.sqlite3
+/logs
+/uploads
+/user_messages
+/user_messages.log
