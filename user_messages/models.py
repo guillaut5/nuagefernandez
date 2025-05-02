@@ -1,0 +1,41 @@
+from django.db import models
+from django.contrib.auth.models import User
+
+
+class Group(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    members = models.ManyToManyField(User, related_name="custom_user_groups")
+
+    def __str__(self):
+        return self.name
+
+
+class Message(models.Model):
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_messages"
+    )
+    recipient = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="received_messages",
+    )
+    recipient_group = models.ForeignKey(
+        Group,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="group_messages",
+    )
+    text = models.TextField()
+    image = models.ImageField(upload_to="uploads/", null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField()
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Message from {self.sender.username} at {self.timestamp}"
