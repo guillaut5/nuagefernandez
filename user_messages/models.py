@@ -39,3 +39,17 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.timestamp}"
+
+
+class MessageReadStatus(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_read = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("message", "user")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.message.id} - Lu: {self.is_read} / Supprimé: {self.is_deleted}"

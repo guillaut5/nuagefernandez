@@ -1,6 +1,7 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib import messages as flash_messages
 from .forms import UserRegistrationForm, MessageForm
@@ -8,11 +9,12 @@ from .models import Message
 import requests
 import os
 from django.http import HttpResponse
-from user_messages.models import Message, Group
+from user_messages.models import Message, Group, MessageReadStatus
 import base64
 from django.core.files.base import ContentFile
 import logging
 from django.utils.timezone import now
+from django.urls import reverse
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -81,10 +83,14 @@ def register(request):
                 f"Utilisateur '{user.username}' créé depuis IP {ip} ({geo}) - User-Agent: {user_agent}",
             )
 
-            return redirect("login")
+            return redirect(reverse("user_messages:registration_success"))
     else:
         form = UserRegistrationForm()
     return render(request, "registration/register.html", {"form": form})
+
+
+def registration_success(request):
+    return render(request, "registration/registration_success.html")
 
 
 @login_required
@@ -100,6 +106,14 @@ def message_list(request):
     user = request.user
     user_groups = Group.objects.filter(members=user)
 
+    statuses = MessageReadStatus.objects.filter(
+        user=request.user,
+        is_deleted=False,
+        message__deleted=False,  # 👈 exclure les messages supprimés par l'émetteur
+    ).select_related("message")
+    # Marquer comme lu automatiquement
+    statuses.filter(is_read=False).update(is_read=True, read_at=timezone.now())
+
     received_messages = (
         Message.objects.filter(deleted=False, recipient=user)
         | Message.objects.filter(
@@ -111,11 +125,25 @@ def message_list(request):
     )
 
     received_messages = received_messages.order_by("-timestamp")
-    return render(request, "user_messages/list.html", {"messages": received_messages})
+    return render(
+        request,
+        "user_messages/list.html",
+        {"messages": received_messages, "statuses": statuses},
+    )
+
+
+@login_required
+def delete_received_message(request, status_id):
+    status = get_object_or_404(MessageReadStatus, id=status_id, user=request.user)
+    if request.method == "POST":
+        status.is_deleted = True
+        status.save()
+    return redirect("user_messages:user_messages")
 
 
 @login_required
 def send_message(request):
+    recipient_username = request.GET.get("recipient")
     if request.method == "POST":
         form = MessageForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
@@ -136,7 +164,14 @@ def send_message(request):
                 )
 
             msg.save()
-
+            # Créer le statut pour le destinataire direct
+            if msg.recipient:
+                MessageReadStatus.objects.create(message=msg, user=msg.recipient)
+            # OU pour chaque utilisateur du groupe
+            elif msg.recipient_group:
+                group = msg.recipient_group
+                for user in group.user_set.all():
+                    MessageReadStatus.objects.create(message=msg, user=user)
             # envoie dans le message channel
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
@@ -162,7 +197,18 @@ def send_message(request):
         else:
             print(form.errors)
     else:
-        form = MessageForm(user=request.user)
+        recipient_username = request.GET.get("recipient")
+        initial_data = {}
+        if recipient_username:
+            try:
+                user_obj = User.objects.get(username=recipient_username)
+                initial_data[
+                    "recipient"
+                ] = user_obj  # 👈 ici on passe l'instance utilisateur directement
+            except User.DoesNotExist:
+                pass  # Ignore si l'utilisateur n'existe pas (pas bloquant)
+        form = MessageForm(initial=initial_data)
+
     return render(request, "user_messages/send.html", {"form": form})
 
 

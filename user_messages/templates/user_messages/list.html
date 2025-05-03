@@ -1,37 +1,104 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Messages reçus - NuageFernandez{% endblock %}
+{% block title %}Vos messages reçus - NuageFernandez{% endblock %}
 
 {% block content %}
-    <h1>Vos messages reçus</h1>
+<div class="container mt-4">
+    <h3 class="mb-4"><i class="bi bi-envelope"></i> Vos messages reçus</h3>
 
-    {% for message in messages %}
-        <div class="card mb-3">
-            <div class="card-header">
-                De : {{ message.sender.username }}
-                {% if message.recipient %}
-                    → À : {{ message.recipient.username }}
-                {% elif message.recipient_group %}
-                    → Groupe : {{ message.recipient_group.name }}
-                {% else %}
-                    → Public
-                {% endif %}
-            </div>
-            <div class="card-body">
-                <p>{{ message.text }}</p>
-                {% if message.image %}
-                    <img src="{{ message.image.url }}" class="img-fluid rounded" style="max-width: 300px;">
-                {% endif %}
-                <small class="text-muted">Envoyé le {{ message.timestamp|date:"d/m/Y H:i" }}</small>
+    <!-- Filtre rapide -->
+    <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" placeholder="Filtrer par utilisateur ou contenu..." id="messageFilter" onkeyup="filterMessages()">
+    </div>
 
-                {% if message.sender == user %}
-                    <div class="mt-2">
-                        <a href="/delete/{{ message.id }}/" class="btn btn-sm btn-danger">Supprimer</a>
+    <!-- Timeline -->
+    <ul class="list-group timeline">
+        {% for status in statuses %}
+        <li class="list-group-item bg-light p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <!-- Expéditeur + infos -->
+                <div>
+                    <strong>De : {{ status.message.sender.username }}</strong>
+                    <br>
+                    <span class="text-muted small">
+                        {% if status.message.recipient_group %}
+                            Groupe : {{ status.message.recipient_group.name }}
+                        {% else %}
+                            Public
+                        {% endif %}
+                    </span>
+                </div>
+
+               <div class="d-flex flex-column align-items-end gap-2">
+                    <!-- Boutons groupés -->
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-primary btn-extra-sm" onclick="replyTo('{{ status.message.sender.username }}')" title="Répondre">
+                            <i class="bi bi-reply-fill"></i>
+                        </button>
+                        <form action="{% url 'user_messages:delete_received_message' status.id %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-extra-sm" title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                     </div>
-                {% endif %}
-            </div>
-        </div>
-    {% empty %}
-        <div class="alert alert-info">Aucun message reçu.</div>
-    {% endfor %}
+
+                    <!-- Badge + date -->
+                    <div class="d-flex align-items-center gap-2">
+                        {% if not status.is_read %}
+                            <span class="badge bg-warning text-dark">Nouveau</span>
+                        {% endif %}
+                        <small class="text-muted" title="{{ status.message.timestamp|date:'d/m/Y H:i' }}">
+                            {{ status.message.timestamp|timesince }} ago
+                        </small>
+                    </div>
+                </div>
+            </div>    
+            <p class="mb-2">{{ status.message.text }}</p>
+
+            {% if status.message.image %}
+                <img src="{{ status.message.image.url }}" class="img-thumbnail mb-2" style="max-width: 100px; cursor:pointer;" data-bs-toggle="modal" data-bs-target="#imageModal{{ status.message.id }}">
+                <!-- Modal -->
+                <div class="modal fade" id="imageModal{{ status.message.id }}" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <img src="{{ status.message.image.url }}" class="img-fluid">
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+           
+        </li>
+        {% empty %}
+        <li class="list-group-item text-center text-muted">
+            Aucun message reçu.
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Script: filtre + réponse -->
+<script>
+function filterMessages() {
+    var input = document.getElementById("messageFilter");
+    var filter = input.value.toLowerCase();
+    var items = document.querySelectorAll(".list-group-item");
+
+    items.forEach(function(item) {
+        if (item.textContent.toLowerCase().includes(filter)) {
+            item.style.display = "";
+        } else {
+            item.style.display = "none";
+        }
+    });
+}
+
+function replyTo(username) {
+    window.location.href = '/send/?recipient=' + encodeURIComponent(username);
+}
+</script>
+
 {% endblock %}
