@@ -1,43 +1,37 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Messages - NuageFernandez</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block title %}Messages reçus - NuageFernandez{% endblock %}
+
+{% block content %}
     <h1>Vos messages reçus</h1>
 
-    <p> <a href="/send/">Envoyer un message</a> |
-        <a href="/sent/">Voir mes messages envoyés</a> |
-        <form action="/accounts/logout/" method="post" style="display:inline;">
-                                                    {% csrf_token %}
-                                                    <button type="submit">Se déconnecter</button>
-        </form>
-    </p>
-
     {% for message in messages %}
-        <div class="message">
-            <p><strong>De :</strong> {{ message.sender.username }}</p>
-            {% if message.recipient %}
-                <p><strong>À :</strong> {{ message.recipient.username }}</p>
-            {% elif message.recipient_group %}
-                <p><strong>À :</strong> Groupe {{ message.recipient_group.name }}</p>
-            {% else %}
-                <p><strong>À :</strong> Tout le monde</p>
-            {% endif %}
-            <p><strong>Date :</strong> {{ message.timestamp }}</p>
-            <p>{{ message.text }}</p>
-            {% if message.image %}
-                <p><img src="{{ message.image.url }}" width="200"></p>
-            {% endif %}
-            {% if message.sender == user %}
-                <p><a href="/delete/{{ message.id }}/">Supprimer</a></p>
-            {% endif %}
+        <div class="card mb-3">
+            <div class="card-header">
+                De : {{ message.sender.username }}
+                {% if message.recipient %}
+                    → À : {{ message.recipient.username }}
+                {% elif message.recipient_group %}
+                    → Groupe : {{ message.recipient_group.name }}
+                {% else %}
+                    → Public
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p>{{ message.text }}</p>
+                {% if message.image %}
+                    <img src="{{ message.image.url }}" class="img-fluid rounded" style="max-width: 300px;">
+                {% endif %}
+                <small class="text-muted">Envoyé le {{ message.timestamp|date:"d/m/Y H:i" }}</small>
+
+                {% if message.sender == user %}
+                    <div class="mt-2">
+                        <a href="/delete/{{ message.id }}/" class="btn btn-sm btn-danger">Supprimer</a>
+                    </div>
+                {% endif %}
+            </div>
         </div>
-        <hr>
     {% empty %}
-        <p>Aucun message reçu.</p>
+        <div class="alert alert-info">Aucun message reçu.</div>
     {% endfor %}
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}NuageFernandez{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Ton CSS perso si besoin -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+    body {
+        font-size: 11px;
+    }
+    :root {
+    --bs-primary: #ff69b4;   /* Rose */
+    --bs-secondary: #ffa07a; /* Corail */
+    --bs-light: #fff0f5;     /* Rose très pâle */
+    --bs-dark: #4b0082;      /* Violet foncé */
+    body {
+        font-size: 11px;
+    }
+
+    .navbar.bg-primary {
+        background-color: #ff69b4 !important;
+    }
+
+    .btn-primary {
+        background-color: #ff69b4 !important;
+        border-color: #ff69b4 !important;
+    }
+
+    .btn-primary:hover {
+        background-color: #ff1493 !important;
+        border-color: #ff1493 !important;
+    }
+}
+</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid d-flex justify-content-between">
+            <!-- Logo + Nom -->
+            <a class="navbar-brand d-flex align-items-center" href="/user_messages/">
+                    <img src="{% static 'img/logo.png' %}" alt="NuageFernandez" style="height: 40px;" class="me-2 rounded-circle">
+                <span class="fw-bold"></span>
+            </a>
+            <div class="d-flex align-items-center">
+                <!-- 👇 Nom utilisateur -->
+                {% if request.user.is_authenticated %}
+                    <span class="text-white me-3">
+                        Bonjour {{ request.user.username }} 👋
+                    </span>
+                {% endif %}
+                <a class="nav-link text-white me-3" href="/send/">Envoyer un message</a>
+                <a class="nav-link text-white me-3" href="/sent/">Voir mes messages envoyés</a>
+                <form action="/accounts/logout/" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-light">Se déconnecter</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+
+
+    <div class="container">
+        {% block content %}
+        <!-- Le contenu spécifique de chaque page apparaîtra ici -->
+        {% endblock %}
+    </div>
+
+    <!-- Toast container (pour notifications temps réel) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="liveToast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">NuageFernandez</strong>
+                <small>Maintenant</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Nouveau message reçu !
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- WebSocket pour temps réel -->
+    <script>
+        const chatSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/messages/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            document.querySelector('.toast-body').innerText = data.message;
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            toast.show();
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('WebSocket closed unexpectedly');
+        };
+    </script>
+
+    {% block scripts %}
+    <!-- Pour des scripts spécifiques par page si besoin -->
+    {% endblock %}
+</body>
+</html>

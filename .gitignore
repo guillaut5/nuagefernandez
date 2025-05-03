@@ -2,5 +2,10 @@
 /db.sqlite3
 /logs
 /uploads
+/staticfiles
 /user_messages.log
 **.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+nuagefernandez/__pycache__/settings.cpython-313.pyc

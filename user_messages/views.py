@@ -14,6 +14,9 @@ from django.core.files.base import ContentFile
 import logging
 from django.utils.timezone import now
 
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
 
 # Configurer un logger spécifique à ton appli
 logger = logging.getLogger("user_messages")
@@ -133,6 +136,16 @@ def send_message(request):
                 )
 
             msg.save()
+
+            # envoie dans le message channel
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "messages_group",
+                {
+                    "type": "new_message",
+                    "message": f"Message reçu de {msg.sender.username}",
+                },
+            )
 
             # --- LOGGING pédagogique ---
             timestamp = now().strftime("%Y-%m-%d %H:%M:%S")

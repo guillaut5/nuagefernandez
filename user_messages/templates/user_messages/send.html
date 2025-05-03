@@ -1,115 +1,116 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Envoyer un message - NuageFernandez</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <h1>Envoyer un message</h1>
+{% extends 'base.html' %}
+
+{% load widget_tweaks %}
+
+{% block title %}Envoyer un message - NuageFernandez{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="mb-4 fs-3">Envoyer un message</div>
 
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
 
-        <p>
-            {{ form.text.label_tag }}<br>
-            {{ form.text }}
-        </p>
+        <div class="mb-3">
+            {{ form.text.label_tag }}
+            {{ form.text|add_class:"form-control" }}
+        </div>
 
-        <p>
-            {{ form.recipient.label_tag }}<br>
-            {{ form.recipient }}
-        </p>
+        <div class="mb-3">
+            {{ form.recipient.label_tag }}
+            {{ form.recipient|add_class:"form-select" }}
+        </div>
 
-        <p>
-            {{ form.recipient_group.label_tag }}<br>
-            {{ form.recipient_group }}
-        </p>
+        <div class="mb-3">
+            {{ form.recipient_group.label_tag }}
+            {{ form.recipient_group|add_class:"form-select" }}
+        </div>
 
-        <p>
-            <label for="id_image">Choisir une image :</label><br>
-            {{ form.image }}
-        </p>
+        <div class="mb-3">
+            <label for="id_image">Choisir une image :</label>
+            {{ form.image|add_class:"form-control" }}
+        </div>
 
-        <p>Ou bien :</p>
+        <p class="mt-3">Ou bien :</p>
 
-       <button type="button" onclick="openCamera()">📷 Activer la caméra</button>
+        <button type="button" onclick="openCamera()" class="btn btn-secondary mb-3">📷 Activer la caméra</button>
 
-        <video id="video" width="320" height="240" autoplay style="display:none;"></video>
+        <div class="mb-3">
+            <video id="video" width="320" height="240" autoplay class="img-thumbnail" style="display:none;"></video>
+        </div>
 
-        <br>
-
-        <button type="button" onclick="takePicture()" id="captureButton" style="display:none;">📸 Prendre la photo</button>
+        <button type="button" onclick="takePicture()" id="captureButton" class="btn btn-warning mb-3" style="display:none;">📸 Prendre la photo</button>
 
         <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
 
         <input type="hidden" id="captured_image" name="captured_image">
+        <input type="hidden" name="latitude" id="id_latitude">
+        <input type="hidden" name="longitude" id="id_longitude">
 
-        <button type="submit">Envoyer</button>
+        <button type="submit" class="btn btn-success">Envoyer</button>
     </form>
 
-    <p><a href="/messages/">Retour aux messages reçus</a></p>
+    <a href="/user_messages/" class="btn btn-link mt-3">⬅️ Retour aux messages reçus</a>
+</div>
+{% endblock %}
 
-    <script>
-        // --- Gestion de la capture par webcam ---
-        let streaming = false;
+{% block scripts %}
+<script>
+    // --- Gestion de la capture par webcam ---
+    function openCamera() {
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('captureButton');
 
-        function openCamera() {
-    const video = document.getElementById('video');
-    const captureButton = document.getElementById('captureButton');
-
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(function(stream) {
-            video.srcObject = stream;
-            video.play();
-            video.style.display = 'block';
-            captureButton.style.display = 'inline'; // 👈 montrer le bouton après ouverture de la caméra
-        })
-        .catch(function(err) {
-            console.log("Erreur d'accès à la caméra : " + err);
-        });
-    } else {
-        alert("La capture par webcam n'est pas supportée par ce navigateur.");
-    }
-}
-
-function takePicture() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const capturedImageInput = document.getElementById('captured_image');
-
-    const context = canvas.getContext('2d');
-    if (video.videoWidth && video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const data = canvas.toDataURL('image/png');
-        capturedImageInput.value = data;
-
-        // ⚡ Effacer la sélection de fichier upload normal
-        document.getElementById('id_image').value = null;
-
-        // Cacher la vidéo après capture
-        video.style.display = 'none';
-        document.getElementById('captureButton').style.display = 'none';
-    }
-}
-
-    </script>
-
-    <script>
-        // --- Remplir automatiquement latitude/longitude ---
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    document.getElementById('id_latitude').value = position.coords.latitude;
-                    document.getElementById('id_longitude').value = position.coords.longitude;
-                });
-            }
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+                video.style.display = 'block';
+                captureButton.style.display = 'inline';
+            })
+            .catch(function(err) {
+                console.log("Erreur d'accès à la caméra : " + err);
+            });
+        } else {
+            alert("La capture par webcam n'est pas supportée par ce navigateur.");
         }
-        window.onload = getLocation;
-    </script>
-</body>
-</html>
+    }
+
+    function takePicture() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const capturedImageInput = document.getElementById('captured_image');
+
+        const context = canvas.getContext('2d');
+        if (video.videoWidth && video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const data = canvas.toDataURL('image/png');
+            capturedImageInput.value = data;
+
+            // Effacer la sélection de fichier upload normal
+            document.getElementById('id_image').value = null;
+
+            // Cacher la vidéo après capture
+            video.style.display = 'none';
+            document.getElementById('captureButton').style.display = 'none';
+        }
+    }
+</script>
+
+<script>
+    // --- Remplir automatiquement latitude/longitude ---
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                document.getElementById('id_latitude').value = position.coords.latitude;
+                document.getElementById('id_longitude').value = position.coords.longitude;
+            });
+        }
+    }
+    window.onload = getLocation;
+</script>
+{% endblock %}

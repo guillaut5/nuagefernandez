@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "user_messages",  # Notre app
+    "widget_tweaks",
 ]
 
 # Middlewares
@@ -56,7 +57,15 @@ TEMPLATES = [
 ]
 
 # WSGI
-WSGI_APPLICATION = "nuagefernandez.wsgi.application"
+# WSGI_APPLICATION = "nuagefernandez.wsgi.application"
+# ASGI (pour les channls)
+ASGI_APPLICATION = "nuagefernandez.asgi.application"
+
+# channels:
+# Channels layers - on utilise la mémoire pour l'instant (simple pour commencer)
+CHANNEL_LAYERS = {
+    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+}
 
 # Base de données SQLite
 DATABASES = {
@@ -91,6 +100,7 @@ USE_TZ = True
 # Dossier statiques (CSS)
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "user_messages", "static")]
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Dossier des médias (images uploadées)
 MEDIA_URL = "/media/"

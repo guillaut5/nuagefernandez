@@ -1,42 +1,39 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Messages envoyés - NuageFernandez</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <h1>Vos messages envoyés</h1>
+{% extends 'base.html' %}
 
-    <p><a href="/user_messages/">Voir messages reçus</a> | <a href="/send/">Envoyer un nouveau message</a> | 
-    <form action="/accounts/logout/" method="post" style="display:inline;">
-        {% csrf_token %}
-        <button type="submit">Se déconnecter</button>
-    </form>
-    </p>
+{% block title %}Messages envoyés - NuageFernandez{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="mb-4 fs-4">Vos messages envoyés</div>
 
     {% for message in messages %}
-        <div class="message">
-            {% if message.recipient %}
-                <p><strong>À :</strong> {{ message.recipient.username }}</p>
-            {% elif message.recipient_group %}
-                <p><strong>À :</strong> Groupe {{ message.recipient_group.name }}</p>
-            {% else %}
-                <p><strong>À :</strong> Tous</p>
-            {% endif %}
-            <p><strong>Date :</strong> {{ message.timestamp }}</p>
-            <p>{{ message.text }}</p>
-            {% if message.image %}
-                <p><img src="{{ message.image.url }}" width="200"></p>
-            {% endif %}
-            <form action="/delete/{{ message.id }}/" method="post" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit">Supprimer</button>
-            </form>
+        <div class="card mb-3">
+            <div class="card-header">
+                {% if message.recipient %}
+                    À : {{ message.recipient.username }}
+                {% elif message.recipient_group %}
+                    À : Groupe {{ message.recipient_group.name }}
+                {% else %}
+                    À : Tous
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p class="mb-2">{{ message.text }}</p>
+                {% if message.image %}
+                    <img src="{{ message.image.url }}" class="img-fluid rounded mb-2" style="max-width: 300px;">
+                {% endif %}
+                <small class="text-muted">Envoyé le {{ message.timestamp|date:"d/m/Y H:i" }}</small>
+
+                <div class="mt-2">
+                    <form action="/delete/{{ message.id }}/" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <hr>
     {% empty %}
-        <p>Vous n'avez encore rien envoyé.</p>
+        <div class="alert alert-info">Vous n'avez encore rien envoyé.</div>
     {% endfor %}
-</body>
-</html>
+</div>
+{% endblock %}
