@@ -61,6 +61,9 @@
                     <span class="text-white me-3">
                         Bonjour {{ request.user.username }} 👋
                     </span>
+                    <a href="{% url 'swagger-ui' %}" class="text-white me-3">
+                        Voir la documentation API
+                    </a>
                 {% endif %}
                 <a class="nav-link text-white me-3" href="/user_messages/">
                     <i class="bi bi-envelope"></i> Voir mes messages reçus

@@ -23,10 +23,31 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "user_messages",  # Notre app
     "widget_tweaks",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "drf_spectacular",
+    "corsheaders",
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 
+
+# Rest Framework
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+# Swagger setting
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API Nuage Fernandez",
+    "DESCRIPTION": "API REST pour le cloud personnel",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 # Middlewares
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # tout en haut !
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

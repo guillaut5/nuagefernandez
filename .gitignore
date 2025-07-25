@@ -10,3 +10,6 @@ __pycache__/
 *$py.class
 nuagefernandez/__pycache__/settings.cpython-313.pyc
 nuagefernandez/__pycache__/settings.cpython-313.pyc
+backend/db.sqlite3
+backend/user_messages.log
+backend/node_modules/*

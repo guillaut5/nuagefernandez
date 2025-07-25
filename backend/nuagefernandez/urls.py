@@ -9,6 +9,7 @@ urlpatterns = [
     path(
         "accounts/", include("django.contrib.auth.urls")
     ),  # Login, Logout de Django natif
+    path("api/", include("nuagefernandez.api_urls")),  # <- tout passe par /api/
 ]
 
 # Pour servir les fichiers uploadés (images) en développement
