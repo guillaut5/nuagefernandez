@@ -9,14 +9,19 @@ const props = defineProps<{
     target: any
     messages: any[]
   }>
+  activeId?: string | null
+
 }>()
 
-const emit = defineEmits(['select'])
+const emit = defineEmits<{
+  (e: 'select', id: string): void
+}>()
 const search = ref('')
 
 const filteredConversations = computed(() => {
-  return props.conversations.filter((conv) =>
-    conv.label.toLowerCase().includes(search.value.toLowerCase())
+  const term = search.value.toLowerCase().trim()
+  return (props.conversations || []).filter((conv) =>
+    conv.label?.toLowerCase().includes(term)
   )
 })
 </script>
@@ -36,9 +41,9 @@ const filteredConversations = computed(() => {
       <li
         v-for="conv in filteredConversations"
         :key="conv.id"
-        @click="$emit('select', conv)"
-        class="p-3 hover:bg-gray-100 cursor-pointer border-b"
-      >
+        @click="emit('select', conv.id)"
+        :class="['px-3 py-2 cursor-pointer',
+          conv.id === props.activeId ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50']">
         <div class="font-semibold text-sm truncate">{{ conv.label }}</div>
         <div class="text-xs text-gray-500 truncate">
           {{ conv.messages.at(-1)?.text || 'Aucun message' }}
