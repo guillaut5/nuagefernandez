@@ -1,5 +1,6 @@
+
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
@@ -16,26 +17,65 @@ const group = ref<number | ''>('')
 const imageFile = ref<File | null>(null)
 const location = ref({ lat: null as number | null, lng: null as number | null })
 
-// État de chargement et erreurs
+// État
 const loading = ref(false)
 const error = ref('')
-const usergroupStoreLoaded = ref(false)
+const previewUrl = ref<string | null>(null)
 
-
-// Campera pour  PC
-
+// Caméra (desktop/mobile)
 const showCamera = ref(false)
 const video = ref<HTMLVideoElement | null>(null)
-
 let stream: MediaStream | null = null
 
+// Store users/groups
+onMounted(async () => {
+  if (!usergroupStore.loaded) {
+    await usergroupStore.fetch()
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      location.value.lat = pos.coords.latitude
+      location.value.lng = pos.coords.longitude
+    })
+  }
+})
+
+onUnmounted(() => {
+  closeCamera()
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+})
+
+const { users, groups } = storeToRefs(usergroupStore)
+
+// ------- Preview helpers -------
+function setPreviewFromFile(file: File) {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value) // clean ancienne URL
+  imageFile.value = file
+  previewUrl.value = URL.createObjectURL(file)
+}
+
+function clearImage() {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = null
+  imageFile.value = null
+}
+
+// ------- Fichier importé -------
+function handleFile(e: Event) {
+  const files = (e.target as HTMLInputElement).files
+  if (files && files[0]) setPreviewFromFile(files[0])
+}
+
+// ------- Caméra -------
 function openCamera() {
   showCamera.value = true
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(s => {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(async s => {
       stream = s
       if (video.value) {
         video.value.srcObject = stream
+        try { await video.value.play() } catch { }
       }
     })
     .catch(err => {
@@ -43,24 +83,6 @@ function openCamera() {
       alert("Impossible d'accéder à la caméra")
       showCamera.value = false
     })
-}
-
-function capturePhoto() {
-  if (!video.value) return
-
-  const canvas = document.createElement('canvas')
-  canvas.width = video.value.videoWidth
-  canvas.height = video.value.videoHeight
-  const ctx = canvas.getContext('2d')
-  if (ctx) {
-    ctx.drawImage(video.value, 0, 0)
-    canvas.toBlob(blob => {
-      if (blob) {
-        imageFile.value = new File([blob], 'photo.jpg', { type: blob.type })
-        closeCamera()
-      }
-    }, 'image/jpeg')
-  }
 }
 
 function closeCamera() {
@@ -71,63 +93,54 @@ function closeCamera() {
   }
 }
 
-
-// Initialisation
-onMounted(async () => {
-  if (!usergroupStore.loaded) {
-    await usergroupStore.fetch()
-  }
-  usergroupStoreLoaded.value = true
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      location.value.lat = pos.coords.latitude
-      location.value.lng = pos.coords.longitude
-    })
-  }
-})
-onUnmounted(() => closeCamera())
-
-const { users, groups } = storeToRefs(usergroupStore)
-
-function handleFile(e: Event) {
-  const files = (e.target as HTMLInputElement).files
-  if (files && files[0]) imageFile.value = files[0]
+function capturePhoto() {
+  if (!video.value) return
+  const w = video.value.videoWidth
+  const h = video.value.videoHeight
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.drawImage(video.value, 0, 0, w, h)
+  canvas.toBlob(blob => {
+    if (!blob) return
+    const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+    setPreviewFromFile(file)
+    closeCamera()
+  }, 'image/jpeg', 0.9)
 }
 
+// ------- Envoi -------
 async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
     const form = new FormData()
     form.append('text', text.value)
-    if (recipient.value) {
-      form.append('recipient', String(recipient.value))
-    }
-    if (group.value) {
-      form.append('recipient_group', String(group.value))
-    }
-    if (imageFile.value) {
-      form.append('image', imageFile.value)
-    }
-    if (location.value.lat) {
-      form.append('latitude', String(location.value.lat))
-    }
-    if (location.value.lng) {
-      form.append('longitude', String(location.value.lng))
-    }
-    console.log([...form.entries()]);
+    if (recipient.value) form.append('recipient', String(recipient.value))
+    if (group.value) form.append('recipient_group', String(group.value))
+    if (imageFile.value) form.append('image', imageFile.value)
+    if (location.value.lat != null) form.append('latitude', String(location.value.lat))
+    if (location.value.lng != null) form.append('longitude', String(location.value.lng))
+
+    console.log([...form.entries()])
 
     await store.sendMessage(form)
+    // reset léger après envoi
+    text.value = ''
+    recipient.value = ''
+    group.value = ''
+    clearImage()
+
     router.push('/inbox')
-  } catch {
+  } catch (e) {
     error.value = "Erreur lors de l'envoi du message."
   } finally {
     loading.value = false
   }
 }
 </script>
-
 
 <template>
   <div class="max-w-lg mx-auto bg-white shadow rounded-xl p-6 space-y-5">
@@ -157,7 +170,7 @@ async function handleSubmit() {
     </div>
 
     <div>
-      <label class="block text-sm font-medium mb-1">Image  dqssdq</label>
+      <label class="block text-sm font-medium mb-1">Image</label>
       <input
         type="file"
         accept="image/*"
@@ -165,12 +178,19 @@ async function handleSubmit() {
         @change="handleFile"
         class="form-input w-full"
       />
-      <button @click="openCamera" class="btn-secondary w-full">📷 Prendre une photo</button>
-<div v-if="showCamera" class="space-y-3">
-  <video ref="video" autoplay class="w-full rounded-md"></video>
-  <button @click="capturePhoto" class="btn-primary w-full">📸 Capturer</button>
-  <button @click="closeCamera" class="btn w-full">❌ Fermer</button>
-</div>
+      <button @click="openCamera" class="btn-secondary w-full mt-2">📷 Prendre une photo</button>
+
+      <div v-if="showCamera" class="space-y-3 mt-3">
+        <video ref="video" autoplay playsinline class="w-full rounded-md"></video>
+        <button @click="capturePhoto" class="btn-primary w-full">📸 Capturer</button>
+        <button @click="closeCamera" class="btn w-full">❌ Fermer</button>
+      </div>
+
+      <!-- Aperçu -->
+      <div v-if="previewUrl" class="mt-3">
+        <img :src="previewUrl" alt="Aperçu de l'image" class="w-full max-h-64 object-contain rounded-md border" />
+        <button @click="clearImage" class="btn w-full mt-2">🗑️ Retirer l’image</button>
+      </div>
     </div>
 
     <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
@@ -185,5 +205,3 @@ async function handleSubmit() {
     </button>
   </div>
 </template>
-
-<style scoped></style>

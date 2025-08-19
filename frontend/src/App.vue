@@ -1,28 +1,32 @@
 <script setup lang="ts">
+import { onMounted, computed } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuth } from '@/store/useAuth'
-import { Mail, Send, LogIn, LogOut } from 'lucide-vue-next'
+import { LogIn, LogOut, User as UserIcon } from 'lucide-vue-next'
 
-const auth = useAuth()
+const authStore = useAuth() // <-- renommé
 const router = useRouter()
 
+// Computed simple : lit le username depuis le store (réactif)
+const username = computed(() => authStore.user?.username || '')
+onMounted(() => {
+  authStore.initialize()
+})
 function handleLogout() {
-  auth.logout()
+  authStore.logout()
   router.push('/login')
 }
 </script>
+
 <template>
   <div class="min-h-screen bg-gray-50 text-gray-900">
-    <!-- NAVBAR -->
     <header class="bg-white border-b shadow-sm sticky top-0 z-50">
       <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
-        <!-- Logo -->
         <div class="flex items-center gap-3">
           <img src="@/assets/logo.png" alt="Logo" class="h-8 w-8 rounded" />
           <span class="font-semibold text-lg">NuagePrivé</span>
         </div>
 
-        <!-- Menu -->
         <div class="flex items-center gap-6">
           <ul class="flex items-center gap-6 text-sm font-medium">
             <li><RouterLink to="/" class="hover:text-blue-600">Accueil</RouterLink></li>
@@ -30,22 +34,41 @@ function handleLogout() {
             <li><RouterLink to="/sent" class="hover:text-blue-600">Envoyées</RouterLink></li>
             <li><RouterLink to="/send" class="hover:text-blue-600">Nouveau Message</RouterLink></li>
             <li><RouterLink to="/chat" class="hover:text-blue-600">Chat</RouterLink></li>
-
             <li><RouterLink to="/profile" class="hover:text-blue-600">Profil</RouterLink></li>
           </ul>
 
-          <!-- Logout -->
-          <button
-            @click="handleLogout"
-            class="text-sm font-medium text-red-600 hover:text-red-800 ml-4"
-          >
-            Déconnexion
-          </button>
+          <!-- Zone utilisateur -->
+          <div class="flex items-center gap-4 ml-2">
+            <template v-if="authStore.isAuthenticated">
+              <div class="flex items-center gap-2 text-sm">
+                <UserIcon class="w-4 h-4" />
+                <span class="truncate max-w-[12rem]">
+                  {{ authStore.activeUsername || '—' }}
+                </span>
+              </div>
+              <button
+                @click="handleLogout"
+                class="text-sm font-medium text-red-600 hover:text-red-800"
+              >
+                <span class="inline-flex items-center gap-1">
+                  <LogOut class="w-4 h-4" /> Déconnexion
+                </span>
+              </button>
+            </template>
+
+            <template v-else>
+              <RouterLink
+                to="/login"
+                class="text-sm font-medium hover:text-blue-600 inline-flex items-center gap-1"
+              >
+                <LogIn class="w-4 h-4" /> Se connecter
+              </RouterLink>
+            </template>
+          </div>
         </div>
       </nav>
     </header>
 
-    <!-- CONTENU -->
     <main class="container mx-auto px-4 py-8">
       <RouterView />
     </main>

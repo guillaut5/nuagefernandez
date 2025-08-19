@@ -26,7 +26,6 @@ class MessageSendSerializer(serializers.ModelSerializer):
     recipient_group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(), required=False, allow_null=True
     )
-    captured_image = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = Message
@@ -40,7 +39,6 @@ class MessageSendSerializer(serializers.ModelSerializer):
             "sender",
             "recipient",
             "recipient_group",
-            "captured_image",
         ]
 
     def create(self, validated_data):

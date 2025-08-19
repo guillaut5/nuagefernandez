@@ -46,20 +46,6 @@ class SendMessageAPIView(APIView):
         msg.ip_address = request.META.get("REMOTE_ADDR")
         msg.user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
 
-        # Traitement image base64
-        captured_image = request.data.get("captured_image")
-        if captured_image:
-            try:
-                format, imgstr = captured_image.split(";base64,")
-                ext = format.split("/")[-1]
-                msg.image.save(
-                    f"photo_capture.{ext}",
-                    ContentFile(base64.b64decode(imgstr)),
-                    save=False,
-                )
-            except Exception as e:
-                logger.warning(f"Erreur image base64: {e}")
-
         msg.save()
 
         # Création des statuts

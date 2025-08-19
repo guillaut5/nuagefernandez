@@ -152,17 +152,6 @@ def send_message(request):
             msg.ip_address = request.META.get("REMOTE_ADDR")
             msg.user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
 
-            # Traitement spécial pour capture webcam
-            if "captured_image" in request.POST and request.POST["captured_image"]:
-                data_url = request.POST["captured_image"]
-                format, imgstr = data_url.split(";base64,")
-                ext = format.split("/")[-1]
-                msg.image.save(
-                    f"photo_capture.{ext}",
-                    ContentFile(base64.b64decode(imgstr)),
-                    save=True,
-                )
-
             msg.save()
             # Créer le statut pour le destinataire direct
             if msg.recipient:
