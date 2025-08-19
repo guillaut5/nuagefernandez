@@ -6,7 +6,7 @@ import { useUserGroupStore } from '@/store/useUserGroupStore'
 import { useMessages } from '@/store/useMessages'
 
 const store = useMessages()
-const usergroup = useUserGroupStore()
+const usergroupStore = useUserGroupStore()
 const router = useRouter()
 
 // Champs du formulaire
@@ -19,7 +19,7 @@ const location = ref({ lat: null as number | null, lng: null as number | null })
 // État de chargement et erreurs
 const loading = ref(false)
 const error = ref('')
-const usergroupLoaded = ref(false)
+const usergroupStoreLoaded = ref(false)
 
 
 // Campera pour  PC
@@ -74,10 +74,10 @@ function closeCamera() {
 
 // Initialisation
 onMounted(async () => {
-  if (!usergroup.loaded) {
-    await usergroup.fetch()
+  if (!usergroupStore.loaded) {
+    await usergroupStore.fetch()
   }
-  usergroupLoaded.value = true
+  usergroupStoreLoaded.value = true
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -88,7 +88,7 @@ onMounted(async () => {
 })
 onUnmounted(() => closeCamera())
 
-const { users, groups } = storeToRefs(usergroup)
+const { users, groups } = storeToRefs(usergroupStore)
 
 function handleFile(e: Event) {
   const files = (e.target as HTMLInputElement).files
@@ -101,11 +101,22 @@ async function handleSubmit() {
   try {
     const form = new FormData()
     form.append('text', text.value)
-    if (recipient.value) form.append('recipient', String(recipient.value))
-    if (group.value) form.append('recipient_group', String(group.value))
-    if (imageFile.value) form.append('image', imageFile.value)
-    if (location.value.lat) form.append('latitude', String(location.value.lat))
-    if (location.value.lng) form.append('longitude', String(location.value.lng))
+    if (recipient.value) {
+      form.append('recipient', String(recipient.value))
+    }
+    if (group.value) {
+      form.append('recipient_group', String(group.value))
+    }
+    if (imageFile.value) {
+      form.append('image', imageFile.value)
+    }
+    if (location.value.lat) {
+      form.append('latitude', String(location.value.lat))
+    }
+    if (location.value.lng) {
+      form.append('longitude', String(location.value.lng))
+    }
+    console.log([...form.entries()]);
 
     await store.sendMessage(form)
     router.push('/inbox')

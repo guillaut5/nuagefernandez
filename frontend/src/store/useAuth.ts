@@ -5,7 +5,7 @@ import type { TokenPair } from '@/types/api'
 interface AuthState {
   access: string | null
   refresh: string | null
-  user: { username: string } | null
+  user: { username: string; id: number } | null
 }
 
 export const useAuth = defineStore('auth', {
@@ -71,7 +71,7 @@ export const useAuth = defineStore('auth', {
       this.refresh = refresh
       try {
         const payload = JSON.parse(atob(access.split('.')[1]))
-        this.user = { username: payload.username }
+        this.user = { username: payload.username, id: payload.id }
       } catch (error) {
         console.warn('Erreur de décodage du JWT', error)
         this.user = null

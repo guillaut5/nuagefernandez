@@ -5,7 +5,21 @@ from .models import Message, Group, MessageReadStatus
 from django.contrib.auth.models import User
 
 
+class UserSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User  # ou ton modèle utilisateur personnalisé
+        fields = ["id", "username"]
+
+
+class GroupSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group  # ou le modèle que tu utilises pour les groupes
+        fields = ["id", "name"]
+
+
 class MessageSendSerializer(serializers.ModelSerializer):
+    sender = UserSummarySerializer(read_only=True)
+    # -> Rendez ces champs "writable" via leur PK
     recipient = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
@@ -17,12 +31,15 @@ class MessageSendSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
+            "id",
             "text",
             "image",
-            "recipient",
-            "recipient_group",
+            "timestamp",
             "latitude",
             "longitude",
+            "sender",
+            "recipient",
+            "recipient_group",
             "captured_image",
         ]
 
@@ -35,9 +52,9 @@ class MessageSendSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender_username = serializers.CharField(source="sender.username", read_only=True)
-    recipient_username = serializers.SerializerMethodField()
-    recipient_group_name = serializers.SerializerMethodField()
+    sender = UserSummarySerializer(read_only=True)
+    recipient = UserSummarySerializer(read_only=True)
+    recipient_group = GroupSummarySerializer(read_only=True)
 
     def get_recipient_username(self, obj):
         return obj.recipient.username if obj.recipient else None
@@ -54,9 +71,9 @@ class MessageSerializer(serializers.ModelSerializer):
             "timestamp",
             "latitude",
             "longitude",
-            "sender_username",
-            "recipient_username",
-            "recipient_group_name",
+            "sender",
+            "recipient",
+            "recipient_group",
         ]
 
 

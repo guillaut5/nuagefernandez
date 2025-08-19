@@ -28,5 +28,12 @@ export const useUserGroupStore = defineStore('user-group-store', {
       this.groups = groups
       this.loaded = true
     },
+    getUserById(id: number): SimpleUser | undefined {
+      return this.users.find((u) => u.id === id)
+    },
+
+    getGroupById(id: number): SimpleGroup | undefined {
+      return this.groups.find((g) => g.id === id)
+    },
   },
 })

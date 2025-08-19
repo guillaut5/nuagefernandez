@@ -9,6 +9,7 @@ import { useAuth } from '@/store/useAuth'
 const store = useMessages()
 
 const currentUserName = useAuth().user?.username
+const currentUserId = useAuth().user?.id
 
 onMounted(() => store.fetchInbox())
 
@@ -18,28 +19,30 @@ const activeConversation = ref<any | null>(null)
 const conversations = computed(() => {
   const map = new Map()
   for (const msgStatus of store.inbox) {
+    const msg = msgStatus.message
     let key = '', label = '', type = '', target = null
-    if (msgStatus.message.recipient_group_name) {
-      key = `group-${msgStatus.message.recipient_group_name}`
-      label = msgStatus.message.recipient_group_name
+    if (msg.recipient_group) {
+      key = `group-${msg.recipient_group.id}`
+      label = msg.recipient_group.groupname
       type = 'group'
-      target = msgStatus.message.recipient_group_name
+      target = msg.recipient_group
     } else {
-      const other = msgStatus.message.sender_username === currentUserName ? msgStatus.message.recipient_username : msgStatus.message.sender_username
-      key = `user-${other}`
-      label = other ?? null
+      const other = msg.sender.id === currentUserId ? msg.recipient : msg.sender
+      key = `user-${other.id}`
+      label = other.username
       type = 'user'
       target = other
     }
     if (!map.has(key)) {
       map.set(key, { id: key, label, type, target, messages: [] })
     }
-    map.get(key).messages.push(msgStatus)
+    map.get(key).messages.push(msg)
   }
   return Array.from(map.values()).sort((a, b) =>
     b.messages.at(-1).timestamp.localeCompare(a.messages.at(-1).timestamp)
   )
 })
+
 
 function selectConversation(conv: any) {
   activeConversation.value = conv

@@ -18,8 +18,8 @@ onMounted(() => {
     >
       <p class="font-semibold">
         À :
-        <span v-if="msg.recipient_username">{{ msg.recipient_username }}</span>
-        <span v-else-if="msg.recipient_group_name">{{ msg.recipient_group_name }} (groupe)</span>
+        <span v-if="msg.recipient?.username">{{ msg.recipient.username }}</span>
+        <span v-else-if="msg.recipient_group?.groupname">{{ msg.recipient_group.groupname }} (groupe)</span>
         <span v-else>—</span>
       </p>
       <p class="text-sm text-gray-600 break-words">{{ msg.text }}</p>

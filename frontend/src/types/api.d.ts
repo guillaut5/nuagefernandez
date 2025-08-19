@@ -1,3 +1,13 @@
+export interface UserSummary {
+  id: number
+  username: string
+}
+
+export interface GroupSummary {
+  id: number
+  groupname: string
+}
+
 export interface Message {
   id: number
   text: string
@@ -5,9 +15,9 @@ export interface Message {
   timestamp: string
   latitude: number | null
   longitude: number | null
-  sender_username: string
-  recipient_username: string | null
-  recipient_group_name: string | null
+  sender: UserSummary
+  recipient: UserSummary | null
+  recipient_group: GroupSummary | null
 }
 
 export interface MessageStatus {
