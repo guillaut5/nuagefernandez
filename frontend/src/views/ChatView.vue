@@ -206,6 +206,7 @@ function buildDraftConversationFromId(id: string) {
       messages: [],
       lastMessage: null,
       lastMessageFromMe: false,
+      isDraft: true,              // 👈 brouillon
     }
   }
   if (id.startsWith('group-')) {
@@ -220,6 +221,8 @@ function buildDraftConversationFromId(id: string) {
       messages: [],
       lastMessage: null,
       lastMessageFromMe: false,
+      isDraft: true,              // 👈 brouillon
+
     }
   }
   return null
@@ -238,6 +241,11 @@ const activeConversation = computed(() => {
 function selectConversation(convid: string) {
   activeConversationId.value = convid
 }
+
+const isNewConversation = computed(() =>
+  !!activeConversation.value &&
+  (activeConversation.value.isDraft || activeConversation.value.messages.length === 0)
+)
 
 // ---- composer
 const sending = ref(false)
@@ -300,93 +308,109 @@ async function sendMessage() {
     />
 
     <div class="flex flex-col flex-1">
+       <!-- Badge "Nouvelle discussion" -->
+      <div v-if="isNewConversation" class="px-4 py-2 border-b bg-amber-50 text-amber-800 text-sm">
+        <span class="inline-flex items-center gap-2">
+          <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-amber-200 font-medium">
+            Nouvelle discussion
+          </span>
+          <span>
+            avec <strong>{{ activeConversation?.label }}</strong>. Écrivez votre premier message 👇
+          </span>
+        </span>
+      </div>
       <ChatMessages
         v-if="activeConversation"
         :key="activeConversation.id"
         :messages="activeConversation.messages"
         :current-user-id="currentUserId"
-      />
-
-<!-- Composer -->
-<div
-  class="p-3 border-t flex flex-col gap-2"
-  @dragover="onDragOver"
-  @dragleave="onDragLeave"
-  @drop="onDrop"
->
-  <!-- Aperçu image si sélectionnée -->
-  <div v-if="imagePreview" class="flex items-center gap-3">
-    <img :src="imagePreview" alt="aperçu" class="h-16 w-16 object-cover rounded-md border" />
-    <button @click="clearImage" class="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
-      ✕ Retirer
-    </button>
-  </div>
-
-  <!-- Bandeau drag & drop -->
-  <div
-    v-if="isDragging && !imagePreview"
-    class="border-2 border-dashed rounded-md p-3 text-sm text-gray-500"
-  >
-    Déposez votre image ici…
-  </div>
-
-  <div class="flex items-center gap-2">
-    <!-- Bouton caméra / fallback fichier -->
-    <button
-      type="button"
-      class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100 border"
-      @click="openCameraOrFile"
-      :disabled="sending"
-      title="Prendre une photo ou choisir un fichier"
-    >
-      <Camera class="w-5 h-5" />
-    </button>
-    <input
-      ref="fileInput"
-      type="file"
-      accept="image/*"
-      capture="environment"
-      class="hidden"
-      @change="handleFile"
-    />
-
-    <!-- Zone de saisie -->
-    <textarea
-      v-model="replyText"
-      placeholder="Écrire un message…"
-      class="flex-1 border rounded-2xl p-2 min-h-[42px] max-h-40 resize-y focus:outline-none"
-      @keydown.enter.exact.prevent="newlineOrSend('newline')"
-      @keydown.enter.ctrl.prevent="newlineOrSend('send')"
-      @keydown.enter.meta.prevent="newlineOrSend('send')"
-    ></textarea>
-
-    <!-- Envoyer -->
-    <button
-      type="button"
-      class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-      :disabled="sending || !canSend"
-      @click="sendMessage"
-      title="Envoyer (Ctrl/Cmd+Entrée)"
-    >
-      <Send class="w-5 h-5" />
-    </button>
-  </div>
-
-  <!-- Modal Caméra -->
-  <div
-    v-if="showCamera"
-    class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
-  >
-    <div class="bg-white rounded-b-full p-4 w-full max-w-md">
-      <div class="text-sm text-gray-600 mb-2">Caméra</div>
-      <video ref="videoRef" autoplay playsinline class="w-full rounded-md"></video>
-      <div class="mt-3 flex gap-2">
-        <button @click="capturePhoto" class="btn-primary flex-1">📸 Capturer</button>
-        <button @click="closeCamera" class="btn flex-1">❌ Fermer</button>
+      >
+      <div v-if="activeConversation && activeConversation.messages.length === 0"
+          class="p-6 text-center text-sm text-gray-500">
+        Aucun message pour le moment.
       </div>
-    </div>
-  </div>
-</div>
+      </ChatMessages>
+
+      <!-- Composer -->
+      <div
+        class="p-3 border-t flex flex-col gap-2"
+        @dragover="onDragOver"
+        @dragleave="onDragLeave"
+        @drop="onDrop"
+      >
+        <!-- Aperçu image si sélectionnée -->
+        <div v-if="imagePreview" class="flex items-center gap-3">
+          <img :src="imagePreview" alt="aperçu" class="h-16 w-16 object-cover rounded-md border" />
+          <button @click="clearImage" class="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+            ✕ Retirer
+          </button>
+        </div>
+
+        <!-- Bandeau drag & drop -->
+        <div
+          v-if="isDragging && !imagePreview"
+          class="border-2 border-dashed rounded-md p-3 text-sm text-gray-500"
+        >
+          Déposez votre image ici…
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Bouton caméra / fallback fichier -->
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100 border"
+            @click="openCameraOrFile"
+            :disabled="sending"
+            title="Prendre une photo ou choisir un fichier"
+          >
+            <Camera class="w-5 h-5" />
+          </button>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="hidden"
+            @change="handleFile"
+          />
+
+          <!-- Zone de saisie -->
+          <textarea
+            v-model="replyText"
+            placeholder="Écrire un message…"
+            class="flex-1 border rounded-2xl p-2 min-h-[42px] max-h-40 resize-y focus:outline-none"
+            @keydown.enter.exact.prevent="newlineOrSend('newline')"
+            @keydown.enter.ctrl.prevent="newlineOrSend('send')"
+            @keydown.enter.meta.prevent="newlineOrSend('send')"
+          ></textarea>
+
+          <!-- Envoyer -->
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            :disabled="sending || !canSend"
+            @click="sendMessage"
+            title="Envoyer (Ctrl/Cmd+Entrée)"
+          >
+            <Send class="w-5 h-5" />
+          </button>
+        </div>
+
+        <!-- Modal Caméra -->
+        <div
+          v-if="showCamera"
+          class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+        >
+          <div class="bg-white rounded-b-full p-4 w-full max-w-md">
+            <div class="text-sm text-gray-600 mb-2">Caméra</div>
+            <video ref="videoRef" autoplay playsinline class="w-full rounded-md"></video>
+            <div class="mt-3 flex gap-2">
+              <button @click="capturePhoto" class="btn-primary flex-1">📸 Capturer</button>
+              <button @click="closeCamera" class="btn flex-1">❌ Fermer</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
