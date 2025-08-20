@@ -215,7 +215,7 @@ function buildDraftConversationFromId(id: string) {
     if (!group) return null
     return {
       id,
-      label: group.name,
+      label: group.groupname,
       type: 'group' as const,
       target: group,
       messages: [],

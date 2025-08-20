@@ -3,11 +3,11 @@ from django.contrib.auth.models import User
 
 
 class Group(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    groupname = models.CharField(max_length=100, unique=True)
     members = models.ManyToManyField(User, related_name="custom_user_groups")
 
     def __str__(self):
-        return self.name
+        return self.groupname
 
 
 class Message(models.Model):

@@ -52,7 +52,7 @@ class SendMessageAPIView(APIView):
         if msg.recipient:
             MessageReadStatus.objects.create(message=msg, user=msg.recipient)
         elif msg.recipient_group:
-            for user in msg.recipient_group.user_set.all():
+            for user in msg.recipient_group.members.all():
                 MessageReadStatus.objects.create(message=msg, user=user)
 
         # Message WebSocket

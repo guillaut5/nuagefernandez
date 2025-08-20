@@ -1,19 +1,11 @@
 import { defineStore } from 'pinia'
 import api from '@/api/http'
-
-interface SimpleUser {
-  id: number
-  username: string
-}
-interface SimpleGroup {
-  id: number
-  name: string
-}
+import type { GroupSummary, UserSummary } from '@/types/api'
 
 export const useUserGroupStore = defineStore('user-group-store', {
   state: () => ({
-    users: [] as SimpleUser[],
-    groups: [] as SimpleGroup[],
+    users: [] as UserSummary[],
+    groups: [] as GroupSummary[],
     loaded: false,
   }),
 
@@ -21,18 +13,18 @@ export const useUserGroupStore = defineStore('user-group-store', {
     async fetch() {
       if (this.loaded) return
       const [{ data: users }, { data: groups }] = await Promise.all([
-        api.get<SimpleUser[]>('/api/messages/users/'),
-        api.get<SimpleGroup[]>('/api/messages/groups/'),
+        api.get<UserSummary[]>('/api/messages/users/'),
+        api.get<GroupSummary[]>('/api/messages/groups/'),
       ])
       this.users = users
       this.groups = groups
       this.loaded = true
     },
-    getUserById(id: number): SimpleUser | undefined {
+    getUserById(id: number): UserSummary | undefined {
       return this.users.find((u) => u.id === id)
     },
 
-    getGroupById(id: number): SimpleGroup | undefined {
+    getGroupById(id: number): GroupSummary | undefined {
       return this.groups.find((g) => g.id === id)
     },
   },

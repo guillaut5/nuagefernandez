@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
 const usergroupStore = useUserGroupStore()
 import { storeToRefs } from 'pinia'
+import { useAuth } from '@/store/useAuth'
 
 // Store users/groups
 onMounted(async () => {
@@ -19,7 +20,6 @@ type Conversation = {
   target: any
   messages: any[]
 }
-type UserSummary = { id: number; username: string }
 
 const props = defineProps<{
   conversations: Conversation[]
@@ -31,7 +31,6 @@ const emit = defineEmits<{
 }>()
 
 const search = ref('')
-
 // Filtre des conversations existantes
 const filteredConversations = computed(() => {
   const term = search.value.toLowerCase().trim()
@@ -43,25 +42,39 @@ const filteredConversations = computed(() => {
 // ---------- Nouvelle discussion ----------
 const showNewDialog = ref(false)
 const searchUser = ref('')
+const searchGroup = ref('')
+const activeNewTab = ref<'users' | 'groups'>('users')
 
-const filteredUsers = computed(() => {
+const meId = useAuth().user?.id
+const filteredUsers = computed(() =>
+  (users ?? [])
+    .filter(u => u.id !== meId)
+    .filter(u => u.username.toLowerCase().includes(searchUser.value.toLowerCase().trim()))
+)
+
+const filteredGroups = computed(() => {
   const term = searchUser.value.toLowerCase().trim()
-  const all = users.value ?? []
+  const all = groups.value ?? []
   if (!term) return all
-  return all.filter(u => u.username.toLowerCase().includes(term))
+  return all.filter(u => u.groupname.toLowerCase().includes(term))
 })
 
 function openNewDialog() {
-  if (!users.value || users.value.length === 0) return
+  const hasUsers = (users.Value?.length ?? 0) > 0
+  const hasGroups = (groups.value?.length ?? 0) > 0
+  if (!hasUsers && !hasGroups) return
+  activeNewTab.value = hasUsers ? 'users' : 'groups'
   showNewDialog.value = true
-  searchUser.value = ''
+  searchUser.value = ''; searchGroup.value = ''
 }
 
-function startConversationWith(user: UserSummary) {
-  // On construit l'id conversation attendu par le parent: "user-<id>"
-  const convId = `user-${user.id}`
+function startConversationWithUser(u: { id: number }) {
   showNewDialog.value = false
-  emit('select', convId)
+  emit('select', `user-${u.id}`)
+}
+function startConversationWithGroup(g: { id: number }) {
+  showNewDialog.value = false
+  emit('select', `group-${g.id}`)
 }
 </script>
 
@@ -76,7 +89,7 @@ function startConversationWith(user: UserSummary) {
         class="w-full p-2 border rounded text-sm"
       />
       <button
-        v-if="users && users.length"
+        v-if="(users && users.length) || (groups && groups.length)"
         class="h-9 w-9 shrink-0 rounded-full border hover:bg-gray-100"
         title="Nouvelle discussion"
         @click="openNewDialog"
@@ -110,35 +123,82 @@ function startConversationWith(user: UserSummary) {
       @click.self="showNewDialog = false"
     >
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <!-- Header -->
         <div class="p-4 border-b flex items-center justify-between">
           <h3 class="font-semibold">Nouvelle discussion</h3>
           <button class="text-gray-500 hover:text-gray-800" @click="showNewDialog = false">✕</button>
         </div>
 
-        <div class="p-4 space-y-3">
-          <input
-            v-model="searchUser"
-            type="text"
-            placeholder="Rechercher un utilisateur…"
-            class="w-full p-2 border rounded text-sm"
-          />
-
-          <ul class="max-h-64 overflow-y-auto divide-y">
-            <li
-              v-for="u in filteredUsers"
-              :key="u.id"
-              class="py-2 px-1 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
-              @click="startConversationWith(u)"
-            >
-              <span class="text-sm">{{ u.username }}</span>
-              <span class="text-xs text-gray-400">user-{{ u.id }}</span>
-            </li>
-            <li v-if="filteredUsers.length === 0" class="py-6 text-center text-sm text-gray-500">
-              Aucun utilisateur
-            </li>
-          </ul>
+        <!-- Onglets Users / Groups -->
+        <div class="border-b flex">
+          <button
+            class="flex-1 p-2 text-sm font-medium"
+            :class="activeNewTab === 'users' ? 'border-b-2 border-blue-500' : 'text-gray-500'"
+            @click="activeNewTab = 'users'"
+          >
+            Utilisateurs
+          </button>
+          <button
+            class="flex-1 p-2 text-sm font-medium"
+            :class="activeNewTab === 'groups' ? 'border-b-2 border-blue-500' : 'text-gray-500'"
+            @click="activeNewTab = 'groups'"
+          >
+            Groupes
+          </button>
         </div>
 
+        <!-- Contenu de l’onglet sélectionné -->
+        <div class="p-4 space-y-3">
+          <!-- Utilisateurs -->
+          <div v-if="activeNewTab === 'users'">
+            <input
+              v-model="searchUser"
+              type="text"
+              placeholder="Rechercher un utilisateur…"
+              class="w-full p-2 border rounded text-sm"
+            />
+            <ul class="max-h-64 overflow-y-auto divide-y">
+              <li
+                v-for="u in filteredUsers"
+                :key="u.id"
+                class="py-2 px-1 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                @click="startConversationWithUser(u)"
+              >
+                <span class="text-sm">{{ u.username }}</span>
+                <span class="text-xs text-gray-400">user-{{ u.id }}</span>
+              </li>
+              <li v-if="filteredUsers.length === 0" class="py-6 text-center text-sm text-gray-500">
+                Aucun utilisateur
+              </li>
+            </ul>
+          </div>
+
+          <!-- Groupes -->
+          <div v-if="activeNewTab === 'groups'">
+            <input
+              v-model="searchGroup"
+              type="text"
+              placeholder="Rechercher un groupe…"
+              class="w-full p-2 border rounded text-sm"
+            />
+            <ul class="max-h-64 overflow-y-auto divide-y">
+              <li
+                v-for="g in filteredGroups"
+                :key="g.id"
+                class="py-2 px-1 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                @click="startConversationWithGroup(g)"
+              >
+                <span class="text-sm">{{ g.name }}</span>
+                <span class="text-xs text-gray-400">group-{{ g.id }}</span>
+              </li>
+              <li v-if="filteredGroups.length === 0" class="py-6 text-center text-sm text-gray-500">
+                Aucun groupe
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Footer -->
         <div class="p-3 border-t text-right">
           <button class="px-3 py-1 rounded hover:bg-gray-100" @click="showNewDialog = false">
             Annuler

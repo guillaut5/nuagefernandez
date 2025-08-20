@@ -14,7 +14,7 @@ class UserSummarySerializer(serializers.ModelSerializer):
 class GroupSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Group  # ou le modèle que tu utilises pour les groupes
-        fields = ["id", "name"]
+        fields = ["id", "groupname"]
 
 
 class MessageSendSerializer(serializers.ModelSerializer):
@@ -57,8 +57,8 @@ class MessageSerializer(serializers.ModelSerializer):
     def get_recipient_username(self, obj):
         return obj.recipient.username if obj.recipient else None
 
-    def get_recipient_group_name(self, obj):
-        return obj.recipient_group.name if obj.recipient_group else None
+    def get_recipient_group_groupname(self, obj):
+        return obj.recipient_group.groupname if obj.recipient_group else None
 
     class Meta:
         model = Message
@@ -114,7 +114,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Group
-        fields = ["id", "name", "member_usernames"]
+        fields = ["id", "groupname", "member_usernames"]
 
 
 class UserSerializer(serializers.ModelSerializer):

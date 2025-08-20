@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Message, Group
+from .models import Message, Group, MessageReadStatus
 
 
 @admin.register(Message)
@@ -18,12 +18,24 @@ class MessageAdmin(admin.ModelAdmin):
         "text",
         "sender__username",
         "recipient__username",
-        "recipient_group__name",
+        "recipient_group__groupname",
     )
     readonly_fields = ("ip_address", "user_agent", "timestamp")
 
 
+@admin.register(MessageReadStatus)
+class MessageReadStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        "message",
+        "user",
+        "is_read",
+        "is_deleted",
+        "read_at",
+    )
+    search_fields = ("user", "is_read", "is_deleted")
+
+
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ("name",)
-    search_fields = ("name",)
+    list_display = ("groupname",)
+    search_fields = ("groupname",)
