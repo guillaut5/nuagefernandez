@@ -4,6 +4,9 @@ import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessages from '@/components/ChatMessages.vue'
 import { useMessages } from '@/store/useMessages'
 import { useAuth } from '@/store/useAuth'
+import { useUserGroupStore } from '@/store/useUserGroupStore'
+const ug = useUserGroupStore()
+
 import type { GroupSummary, Message, UserSummary } from '@/types/api'
 import { Camera, Send } from 'lucide-vue-next'
 
@@ -18,6 +21,7 @@ const location = ref({ lat: null as number | null, lng: null as number | null })
 
 let timerIntervalId: number | undefined
 onMounted(async () => {
+  await ug.fetch()
   await store.fetchAllMessages()
   timerIntervalId = window.setInterval(() => {
     store.fetchAllMessages()
@@ -187,10 +191,50 @@ const conversations = computed(() => {
   )
 })
 
+
+// gestion de nouvelles converstation
+function buildDraftConversationFromId(id: string) {
+  if (id.startsWith('user-')) {
+    const uid = Number(id.slice(5))
+    const user = ug.getUserById(uid)
+    if (!user) return null
+    return {
+      id,
+      label: user.username,
+      type: 'user' as const,
+      target: user,
+      messages: [],
+      lastMessage: null,
+      lastMessageFromMe: false,
+    }
+  }
+  if (id.startsWith('group-')) {
+    const gid = Number(id.slice(6))
+    const group = ug.getGroupById(gid)
+    if (!group) return null
+    return {
+      id,
+      label: group.name,
+      type: 'group' as const,
+      target: group,
+      messages: [],
+      lastMessage: null,
+      lastMessageFromMe: false,
+    }
+  }
+  return null
+}
+
 // conversation active dérivée
-const activeConversation = computed(() =>
-  conversations.value.find(c => c.id === activeConversationId.value) ?? null
-)
+const activeConversation = computed(() => {
+  const id = activeConversationId.value
+  if (!id) return null
+  // essaie d’abord de trouver une vraie conversation
+  const real = conversations.value.find(c => c.id === id)
+  if (real) return real
+  // sinon, fabrique une conversation vide à la volée
+  return buildDraftConversationFromId(id)
+})
 function selectConversation(convid: string) {
   activeConversationId.value = convid
 }
@@ -310,7 +354,7 @@ async function sendMessage() {
     <textarea
       v-model="replyText"
       placeholder="Écrire un message…"
-      class="flex-1 border rounded-lg p-2 min-h-[42px] max-h-40 resize-y focus:outline-none"
+      class="flex-1 border rounded-2xl p-2 min-h-[42px] max-h-40 resize-y focus:outline-none"
       @keydown.enter.exact.prevent="newlineOrSend('newline')"
       @keydown.enter.ctrl.prevent="newlineOrSend('send')"
       @keydown.enter.meta.prevent="newlineOrSend('send')"
@@ -333,7 +377,7 @@ async function sendMessage() {
     v-if="showCamera"
     class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
   >
-    <div class="bg-white rounded-xl p-4 w-full max-w-md">
+    <div class="bg-white rounded-b-full p-4 w-full max-w-md">
       <div class="text-sm text-gray-600 mb-2">Caméra</div>
       <video ref="videoRef" autoplay playsinline class="w-full rounded-md"></video>
       <div class="mt-3 flex gap-2">
