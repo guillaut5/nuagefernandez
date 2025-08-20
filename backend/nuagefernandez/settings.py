@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # BASE_DIR pour chemins absolus
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,6 +58,16 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# JWT
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),  # ex. 2h au lieu de 5 min
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # ex. 7 jours
+    "ROTATE_REFRESH_TOKENS": True,  # optionnel
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    # "LEEWAY": 30,  # tolérance si horloge décalée
+}
 # URLs
 ROOT_URLCONF = "nuagefernandez.urls"
 

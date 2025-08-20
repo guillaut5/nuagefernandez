@@ -37,6 +37,15 @@ export const useMessages = defineStore('messages', {
         console.error('Erreur lors du chargement des messages envoyés :', error)
       }
     },
+
+    async fetchAllMessages() {
+      try {
+        await Promise.all([this.fetchInbox(), this.fetchSent()])
+      } catch (error) {
+        console.error('Erreur lors du chargement des messages :', error)
+      }
+    },
+
     async markAsRead(statusId: number) {
       try {
         await api.patch<void>(`/api/messages/message-status/${statusId}/`, { is_read: true })
