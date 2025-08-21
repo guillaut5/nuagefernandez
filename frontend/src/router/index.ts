@@ -3,7 +3,12 @@ import { useAuth } from '@/store/useAuth'
 
 const routes = [
   { path: '/login', component: () => import('@/views/LoginView.vue') },
-  { path: '/', redirect: '/inbox' },
+  { path: '/', redirect: '/chat' },
+  {
+    path: '/chat',
+    name: 'chat',
+    component: () => import('@/views/ChatView.vue'),
+  },
   {
     path: '/inbox',
     component: () => import('@/views/InboxView.vue'),
@@ -13,11 +18,6 @@ const routes = [
     path: '/sent',
     component: () => import('@/views/SentView.vue'),
     meta: { requiresAuth: true },
-  },
-  {
-    path: '/chat',
-    name: 'chat',
-    component: () => import('@/views/ChatView.vue'),
   },
   {
     path: '/send',

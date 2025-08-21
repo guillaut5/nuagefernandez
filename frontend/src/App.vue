@@ -29,10 +29,6 @@ function handleLogout() {
 
         <div class="flex items-center gap-6">
           <ul class="flex items-center gap-6 text-sm font-medium">
-            <li><RouterLink to="/" class="hover:text-blue-600">Accueil</RouterLink></li>
-            <li><RouterLink to="/inbox" class="hover:text-blue-600">Messages</RouterLink></li>
-            <li><RouterLink to="/sent" class="hover:text-blue-600">Envoyées</RouterLink></li>
-            <li><RouterLink to="/send" class="hover:text-blue-600">Nouveau Message</RouterLink></li>
             <li><RouterLink to="/chat" class="hover:text-blue-600">Chat</RouterLink></li>
             <li><RouterLink to="/profile" class="hover:text-blue-600">Profil</RouterLink></li>
           </ul>

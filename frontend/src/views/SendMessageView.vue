@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -70,15 +69,18 @@ function handleFile(e: Event) {
 // ------- Caméra -------
 function openCamera() {
   showCamera.value = true
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
-    .then(async s => {
+  navigator.mediaDevices
+    .getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(async (s) => {
       stream = s
       if (video.value) {
         video.value.srcObject = stream
-        try { await video.value.play() } catch { }
+        try {
+          await video.value.play()
+        } catch {}
       }
     })
-    .catch(err => {
+    .catch((err) => {
       console.error('Erreur caméra :', err)
       alert("Impossible d'accéder à la caméra")
       showCamera.value = false
@@ -88,7 +90,7 @@ function openCamera() {
 function closeCamera() {
   showCamera.value = false
   if (stream) {
-    stream.getTracks().forEach(t => t.stop())
+    stream.getTracks().forEach((t) => t.stop())
     stream = null
   }
 }
@@ -103,12 +105,16 @@ function capturePhoto() {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.drawImage(video.value, 0, 0, w, h)
-  canvas.toBlob(blob => {
-    if (!blob) return
-    const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
-    setPreviewFromFile(file)
-    closeCamera()
-  }, 'image/jpeg', 0.9)
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) return
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+      setPreviewFromFile(file)
+      closeCamera()
+    },
+    'image/jpeg',
+    0.9,
+  )
 }
 
 // ------- Envoi -------
@@ -188,7 +194,11 @@ async function handleSubmit() {
 
       <!-- Aperçu -->
       <div v-if="previewUrl" class="mt-3">
-        <img :src="previewUrl" alt="Aperçu de l'image" class="w-full max-h-64 object-contain rounded-md border" />
+        <img
+          :src="previewUrl"
+          alt="Aperçu de l'image"
+          class="w-full max-h-64 object-contain rounded-md border"
+        />
         <button @click="clearImage" class="btn w-full mt-2">🗑️ Retirer l’image</button>
       </div>
     </div>
