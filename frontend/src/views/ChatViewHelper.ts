@@ -29,9 +29,6 @@ export function buildConversations(
       label = msg.recipient_group.groupname
       type = 'group'
       target = msg.recipient_group
-
-      // Évite de dupliquer mes propres messages de groupe (déjà présents côté "sent")
-      //   if (msg.sender.id === currentUserId) continue
     } else {
       // 1-to-1
       const other = msg.sender.id === currentUserId ? msg.recipient : msg.sender

@@ -149,7 +149,7 @@ const activeConversation = computed(() => {
   if (!activeConversationId.value) return null
   return (
     conversations.value.find((c) => c.id === activeConversationId.value) ||
-    buildDraftConversationFromId(activeConversationId.value, users.value, groups.value)
+    buildDraftConversationFromId(activeConversationId.value, ug.users, ug.groups)
   )
 })
 function selectConversation(convid: string) {

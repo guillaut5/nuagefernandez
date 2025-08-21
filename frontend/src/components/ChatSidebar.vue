@@ -4,22 +4,15 @@ import { useUserGroupStore } from '@/store/useUserGroupStore'
 const usergroupStore = useUserGroupStore()
 import { storeToRefs } from 'pinia'
 import { useAuth } from '@/store/useAuth'
+import type { Conversation } from '@/types/api'
 
 // Store users/groups
 onMounted(async () => {
   if (!usergroupStore.loaded) {
     await usergroupStore.fetch()
   }
-}
-);
+})
 const { users, groups } = storeToRefs(usergroupStore)
-type Conversation = {
-  id: string
-  label: string
-  type: 'user' | 'group'
-  target: any
-  messages: any[]
-}
 
 const props = defineProps<{
   conversations: Conversation[]
@@ -34,9 +27,7 @@ const search = ref('')
 // Filtre des conversations existantes
 const filteredConversations = computed(() => {
   const term = search.value.toLowerCase().trim()
-  return (props.conversations || []).filter((conv) =>
-    conv.label?.toLowerCase().includes(term)
-  )
+  return (props.conversations || []).filter((conv) => conv.label?.toLowerCase().includes(term))
 })
 
 // ---------- Nouvelle discussion ----------
@@ -46,26 +37,28 @@ const searchGroup = ref('')
 const activeNewTab = ref<'users' | 'groups'>('users')
 
 const meId = useAuth().user?.id
-const filteredUsers = computed(() =>
-  (users ?? [])
-    .filter(u => u.id !== meId)
-    .filter(u => u.username.toLowerCase().includes(searchUser.value.toLowerCase().trim()))
-)
+const filteredUsers = computed(() => {
+  const list = users.value ?? [] // users est un ref -> on prend .value
+  return list
+    .filter((u) => u.id !== meId)
+    .filter((u) => u.username.toLowerCase().includes(searchUser.value.toLowerCase().trim()))
+})
 
 const filteredGroups = computed(() => {
   const term = searchUser.value.toLowerCase().trim()
   const all = groups.value ?? []
   if (!term) return all
-  return all.filter(u => u.groupname.toLowerCase().includes(term))
+  return all.filter((u) => u.groupname.toLowerCase().includes(term))
 })
 
 function openNewDialog() {
-  const hasUsers = (users.Value?.length ?? 0) > 0
+  const hasUsers = (users.value?.length ?? 0) > 0
   const hasGroups = (groups.value?.length ?? 0) > 0
   if (!hasUsers && !hasGroups) return
   activeNewTab.value = hasUsers ? 'users' : 'groups'
   showNewDialog.value = true
-  searchUser.value = ''; searchGroup.value = ''
+  searchUser.value = ''
+  searchGroup.value = ''
 }
 
 function startConversationWithUser(u: { id: number }) {
@@ -106,7 +99,7 @@ function startConversationWithGroup(g: { id: number }) {
         @click="emit('select', conv.id)"
         :class="[
           'px-3 py-2 cursor-pointer',
-          conv.id === props.activeId ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50'
+          conv.id === props.activeId ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50',
         ]"
       >
         <div class="font-semibold text-sm truncate">{{ conv.label }}</div>
@@ -126,7 +119,9 @@ function startConversationWithGroup(g: { id: number }) {
         <!-- Header -->
         <div class="p-4 border-b flex items-center justify-between">
           <h3 class="font-semibold">Nouvelle discussion</h3>
-          <button class="text-gray-500 hover:text-gray-800" @click="showNewDialog = false">✕</button>
+          <button class="text-gray-500 hover:text-gray-800" @click="showNewDialog = false">
+            ✕
+          </button>
         </div>
 
         <!-- Onglets Users / Groups -->

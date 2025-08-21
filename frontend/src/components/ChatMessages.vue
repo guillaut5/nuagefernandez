@@ -1,8 +1,6 @@
 <script setup lang="ts">
-
-import type { Message } from "@/types/api";
-import { ref, watch, nextTick, onMounted, computed } from "vue"
-
+import type { Message, Conversation } from '@/types/api'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
 
 const props = defineProps<{
   messages: any[]
@@ -12,9 +10,7 @@ const props = defineProps<{
 // pour les images en grand
 
 // extrait toutes les images de la conversation
-const images = computed(() =>
-  props.messages.filter(m => m.image).map(m => m.image as string)
-)
+const images = computed(() => props.messages.filter((m) => m.image).map((m) => m.image as string))
 
 const currentImageIndex = ref<number | null>(null)
 
@@ -36,10 +32,7 @@ function prevImage() {
 }
 
 function nextImage() {
-  if (
-    currentImageIndex.value !== null &&
-    currentImageIndex.value < images.value.length - 1
-  ) {
+  if (currentImageIndex.value !== null && currentImageIndex.value < images.value.length - 1) {
     currentImageIndex.value++
   }
 }
@@ -63,7 +56,7 @@ watch(
   () => {
     scrollToBottom()
   },
-  { deep: true }
+  { deep: true },
 )
 
 /** Format “il y a 30 s / 40 min / 3 h / 2 j”, sinon date ex: “20 mars 25” */
@@ -87,7 +80,7 @@ function formatWhen(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'long',
-    year: '2-digit'
+    year: '2-digit',
   }).format(then)
 }
 
@@ -97,17 +90,11 @@ function authorName(msg: Message): string {
 }
 </script>
 <template>
-  <div
-    ref="container"
-    class="flex-1 p-4 flex flex-col space-y-3 overflow-y-auto h-full"
-  >
-       <div
+  <div ref="container" class="flex-1 p-4 flex flex-col space-y-3 overflow-y-auto h-full">
+    <div
       v-for="(msg, index) in messages"
       :key="msg.id"
-      :class="[
-        'flex',
-        msg.sender.id === currentUserId ? 'justify-end' : 'justify-start'
-      ]"
+      :class="['flex', msg.sender.id === currentUserId ? 'justify-end' : 'justify-start']"
     >
       <div class="max-w-[70%]">
         <!-- Ligne meta (auteur + quand) -->
@@ -126,7 +113,7 @@ function authorName(msg: Message): string {
             'inline-block px-3 py-2 rounded-2xl whitespace-pre-wrap break-words',
             msg.sender.id === currentUserId
               ? 'bg-blue-100 text-gray-900'
-              : 'bg-gray-100 text-gray-900'
+              : 'bg-gray-100 text-gray-900',
           ]"
         >
           <template v-if="msg.text">{{ msg.text }}</template>
@@ -159,10 +146,7 @@ function authorName(msg: Message): string {
       </button>
 
       <!-- Image -->
-      <img
-        :src="images[currentImageIndex]"
-        class="max-h-[90%] max-w-[90%] rounded-lg"
-      />
+      <img :src="images[currentImageIndex]" class="max-h-[90%] max-w-[90%] rounded-lg" />
 
       <!-- Bouton suivant -->
       <button
