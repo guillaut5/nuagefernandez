@@ -8,6 +8,17 @@ export interface GroupSummary {
   groupname: string
 }
 
+export type Conversation = {
+  id: string
+  label: string
+  type: 'user' | 'group'
+  target: UserSummary | GroupSummary
+  messages: Message[]
+  lastMessage: Message | null
+  lastMessageFromMe: boolean
+  isDraft?: boolean
+}
+
 export interface Message {
   id: number
   text: string

@@ -101,7 +101,7 @@ function authorName(msg: Message): string {
     ref="container"
     class="flex-1 p-4 flex flex-col space-y-3 overflow-y-auto h-full"
   >
-    <div
+       <div
       v-for="(msg, index) in messages"
       :key="msg.id"
       :class="[

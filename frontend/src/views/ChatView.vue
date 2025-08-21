@@ -5,6 +5,7 @@ import ChatMessages from '@/components/ChatMessages.vue'
 import { useMessages } from '@/store/useMessages'
 import { useAuth } from '@/store/useAuth'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
+import { buildConversations, buildDraftConversationFromId } from '@/views/ChatViewHelper'
 const ug = useUserGroupStore()
 
 import type { GroupSummary, Message, UserSummary } from '@/types/api'
@@ -17,7 +18,6 @@ const auth = useAuth()
 const currentUserId = auth.user?.id ?? 0
 
 const location = ref({ lat: null as number | null, lng: null as number | null })
-
 
 let timerIntervalId: number | undefined
 onMounted(async () => {
@@ -47,7 +47,6 @@ const activeConversationId = ref<string | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const imageFile = ref<File | null>(null)
 const imagePreview = ref<string | null>(null)
-
 
 // ---- état caméra
 const showCamera = ref(false)
@@ -97,7 +96,7 @@ async function openCameraOrFile() {
 }
 
 function stopCamera() {
-  mediaStream?.getTracks().forEach(t => t.stop())
+  mediaStream?.getTracks().forEach((t) => t.stop())
   mediaStream = null
 }
 function closeCamera() {
@@ -114,12 +113,13 @@ async function capturePhoto() {
   canvas.height = h
   const ctx = canvas.getContext('2d')!
   ctx.drawImage(videoRef.value, 0, 0, w, h)
-  const blob: Blob = await new Promise(res => canvas.toBlob(b => res(b as Blob), 'image/jpeg', 0.9))
+  const blob: Blob = await new Promise((res) =>
+    canvas.toBlob((b) => res(b as Blob), 'image/jpeg', 0.9),
+  )
   const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
   setPreviewFromFile(file)
   closeCamera()
 }
-
 
 // ---- drag & drop (optionnel)
 const isDragging = ref(false)
@@ -139,112 +139,27 @@ function onDrop(e: DragEvent) {
 
 // ---- build des conversations (reçu + envoyé)
 const conversations = computed(() => {
-  const map = new Map<string, {
-    id: string
-    label: string
-    type: 'user' | 'group'
-    target: UserSummary | GroupSummary
-    messages: Message[]
-    lastMessage: Message | null
-    lastMessageFromMe: boolean
-  }>()
-
-  const allMessages = [
-    ...store.inbox.map(ms => ms.message), // Inbox = MessageStatus -> Message
-    ...store.sent,                        // Sent = Message[]
-  ]
-
-  for (const msg of allMessages) {
-    let key = '', label = '', type: 'user' | 'group', target: any
-
-    if (msg.recipient_group) {
-      key = `group-${msg.recipient_group.id}`
-      label = msg.recipient_group.groupname
-      type = 'group'
-      target = msg.recipient_group
-    } else {
-      const other = msg.sender.id === currentUserId ? msg.recipient : msg.sender
-      if (!other) continue
-      key = `user-${other.id}`
-      label = other.username
-      type = 'user'
-      target = other
-    }
-
-    if (!map.has(key)) {
-      map.set(key, { id: key, label, type, target, messages: [], lastMessage: null, lastMessageFromMe: false })
-    }
-    map.get(key)!.messages.push(msg)
-  }
-
-  // trier les messages et calculer lastMessage
-  for (const conv of map.values()) {
-    conv.messages.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-    const last = conv.messages.at(-1) || null
-    conv.lastMessage = last
-    conv.lastMessageFromMe = last ? last.sender.id === currentUserId : false
-  }
-
-  // trier les conversations par dernier message DESC
-  return Array.from(map.values()).sort(
-    (a, b) => (b.lastMessage?.timestamp || '').localeCompare(a.lastMessage?.timestamp || '')
-  )
+  const inbox = store.inbox.map((ms) => ms.message) // aplatissement MessageStatus -> Message
+  const sent = store.sent
+  return buildConversations(inbox, sent, currentUserId)
 })
 
-
-// gestion de nouvelles converstation
-function buildDraftConversationFromId(id: string) {
-  if (id.startsWith('user-')) {
-    const uid = Number(id.slice(5))
-    const user = ug.getUserById(uid)
-    if (!user) return null
-    return {
-      id,
-      label: user.username,
-      type: 'user' as const,
-      target: user,
-      messages: [],
-      lastMessage: null,
-      lastMessageFromMe: false,
-      isDraft: true,              // 👈 brouillon
-    }
-  }
-  if (id.startsWith('group-')) {
-    const gid = Number(id.slice(6))
-    const group = ug.getGroupById(gid)
-    if (!group) return null
-    return {
-      id,
-      label: group.groupname,
-      type: 'group' as const,
-      target: group,
-      messages: [],
-      lastMessage: null,
-      lastMessageFromMe: false,
-      isDraft: true,              // 👈 brouillon
-
-    }
-  }
-  return null
-}
-
-// conversation active dérivée
+// Conversation active avec fallback “draft”
 const activeConversation = computed(() => {
-  const id = activeConversationId.value
-  if (!id) return null
-  // essaie d’abord de trouver une vraie conversation
-  const real = conversations.value.find(c => c.id === id)
-  if (real) return real
-  // sinon, fabrique une conversation vide à la volée
-  return buildDraftConversationFromId(id)
+  if (!activeConversationId.value) return null
+  return (
+    conversations.value.find((c) => c.id === activeConversationId.value) ||
+    buildDraftConversationFromId(activeConversationId.value, users.value, groups.value)
+  )
 })
 function selectConversation(convid: string) {
   activeConversationId.value = convid
 }
 
-const isNewConversation = computed(() =>
-  !!activeConversation.value &&
-  (activeConversation.value.isDraft || activeConversation.value.messages.length === 0)
+const isNewConversation = computed(
+  () =>
+    !!activeConversation.value &&
+    (activeConversation.value.isDraft || activeConversation.value.messages.length === 0),
 )
 
 // ---- composer
@@ -308,14 +223,15 @@ async function sendMessage() {
     />
 
     <div class="flex flex-col flex-1">
-       <!-- Badge "Nouvelle discussion" -->
+      <!-- Badge "Nouvelle discussion" -->
       <div v-if="isNewConversation" class="px-4 py-2 border-b bg-amber-50 text-amber-800 text-sm">
         <span class="inline-flex items-center gap-2">
           <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-amber-200 font-medium">
             Nouvelle discussion
           </span>
           <span>
-            avec <strong>{{ activeConversation?.label }}</strong>. Écrivez votre premier message 👇
+            avec <strong>{{ activeConversation?.label }}</strong
+            >. Écrivez votre premier message 👇
           </span>
         </span>
       </div>
@@ -325,10 +241,12 @@ async function sendMessage() {
         :messages="activeConversation.messages"
         :current-user-id="currentUserId"
       >
-      <div v-if="activeConversation && activeConversation.messages.length === 0"
-          class="p-6 text-center text-sm text-gray-500">
-        Aucun message pour le moment.
-      </div>
+        <div
+          v-if="activeConversation && activeConversation.messages.length === 0"
+          class="p-6 text-center text-sm text-gray-500"
+        >
+          Aucun message pour le moment.
+        </div>
       </ChatMessages>
 
       <!-- Composer -->
@@ -341,7 +259,10 @@ async function sendMessage() {
         <!-- Aperçu image si sélectionnée -->
         <div v-if="imagePreview" class="flex items-center gap-3">
           <img :src="imagePreview" alt="aperçu" class="h-16 w-16 object-cover rounded-md border" />
-          <button @click="clearImage" class="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+          <button
+            @click="clearImage"
+            class="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200"
+          >
             ✕ Retirer
           </button>
         </div>
@@ -414,4 +335,3 @@ async function sendMessage() {
     </div>
   </div>
 </template>
-
