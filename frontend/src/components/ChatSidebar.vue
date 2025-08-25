@@ -4,30 +4,27 @@ import { useUserGroupStore } from '@/store/useUserGroupStore'
 const usergroupStore = useUserGroupStore()
 import { storeToRefs } from 'pinia'
 import { useAuth } from '@/store/useAuth'
-import type { Conversation } from '@/types/api'
+import { useMessages } from '@/store/useMessages'
+import { formatWhen } from '@/helpers/datehelper'
+
+const messageStore = useMessages()
 
 // Store users/groups
 onMounted(async () => {
+  messageStore.fetchConversationsSummary()
   if (!usergroupStore.loaded) {
     await usergroupStore.fetch()
   }
 })
 const { users, groups } = storeToRefs(usergroupStore)
 
-const props = defineProps<{
-  conversations: Conversation[]
-  activeId?: string | null
-}>()
-
-const emit = defineEmits<{
-  (e: 'select', id: string): void
-}>()
-
 const search = ref('')
 // Filtre des conversations existantes
 const filteredConversations = computed(() => {
   const term = search.value.toLowerCase().trim()
-  return (props.conversations || []).filter((conv) => conv.label?.toLowerCase().includes(term))
+  return (messageStore.conversationsSummaries || []).filter((conv) =>
+    conv.label?.toLowerCase().includes(term),
+  )
 })
 
 // ---------- Nouvelle discussion ----------
@@ -61,13 +58,17 @@ function openNewDialog() {
   searchGroup.value = ''
 }
 
+function startConversation(cid: string) {
+  messageStore.openConversation(cid)
+}
+
 function startConversationWithUser(u: { id: number }) {
   showNewDialog.value = false
-  emit('select', `user-${u.id}`)
+  messageStore.openConversation(`user-${u.id}`)
 }
 function startConversationWithGroup(g: { id: number }) {
   showNewDialog.value = false
-  emit('select', `group-${g.id}`)
+  messageStore.openConversation(`group-${g.id}`)
 }
 </script>
 
@@ -96,15 +97,25 @@ function startConversationWithGroup(g: { id: number }) {
       <li
         v-for="conv in filteredConversations"
         :key="conv.id"
-        @click="emit('select', conv.id)"
+        @click="startConversation(conv.id)"
         :class="[
           'px-3 py-2 cursor-pointer',
-          conv.id === props.activeId ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50',
+          conv.id === messageStore.activeConversationId
+            ? 'bg-blue-50 font-medium'
+            : 'hover:bg-gray-50',
         ]"
       >
-        <div class="font-semibold text-sm truncate">{{ conv.label }}</div>
+        <div class="flex items-center justify-between">
+          <div class="font-semibold text-sm truncate">{{ conv.label }}</div>
+          <span
+            v-if="conv.unread_count > 0"
+            class="ml-2 inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs font-bold bg-blue-600 text-white rounded-full"
+          >
+            {{ conv.unread_count }}
+          </span>
+        </div>
         <div class="text-xs text-gray-500 truncate">
-          {{ conv.messages.at(-1)?.text || 'Aucun message' }}
+          {{ formatWhen(conv.last_message_at) }}
         </div>
       </li>
     </ul>
@@ -183,7 +194,7 @@ function startConversationWithGroup(g: { id: number }) {
                 class="py-2 px-1 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
                 @click="startConversationWithGroup(g)"
               >
-                <span class="text-sm">{{ g.name }}</span>
+                <span class="text-sm">{{ g.groupname }}</span>
                 <span class="text-xs text-gray-400">group-{{ g.id }}</span>
               </li>
               <li v-if="filteredGroups.length === 0" class="py-6 text-center text-sm text-gray-500">

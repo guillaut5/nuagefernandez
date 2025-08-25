@@ -107,6 +107,42 @@ class MessageReadStatusUpdateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class MessageThreadSerializer(serializers.ModelSerializer):
+    sender = UserSummarySerializer()
+    recipient = UserSummarySerializer(allow_null=True)
+    recipient_group = GroupSummarySerializer(allow_null=True)
+    image = serializers.ImageField(use_url=True, allow_null=True, required=False)  # ✅
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if obj.image and hasattr(obj.image, "url"):
+            return (
+                request.build_absolute_uri(obj.image.url) if request else obj.image.url
+            )
+        return None
+
+    class Meta:
+        model = Message
+        fields = [
+            "id",
+            "text",
+            "image",
+            "timestamp",
+            "latitude",
+            "longitude",
+            "sender",
+            "recipient",
+            "recipient_group",
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if data.get("image") and request:
+            data["image"] = request.build_absolute_uri(data["image"])
+        return data
+
+
 class GroupSerializer(serializers.ModelSerializer):
     member_usernames = serializers.SlugRelatedField(
         many=True, read_only=True, slug_field="username", source="members"

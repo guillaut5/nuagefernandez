@@ -8,6 +8,8 @@ from user_messages.api_views import (
     UserGroupsAPIView,
     UserSentMessagesListAPIView,
     UserAPIView,
+    conversations_summary,
+    MessageThreadView,
 )
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -39,4 +41,6 @@ urlpatterns = [
     path("my-groups/", UserGroupsAPIView.as_view(), name="user-groups"),
     path("users/", UserAPIView.as_view(), name="all-users"),
     path("send/", SendMessageAPIView.as_view(), name="send-message"),
+    path("conversations-summary/", conversations_summary, name="converstation-summary"),
+    path("thread/", MessageThreadView.as_view(), name="messages-thread"),
 ]

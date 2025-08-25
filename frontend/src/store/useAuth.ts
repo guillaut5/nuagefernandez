@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import api from '@/api/http'
 import type { TokenPair } from '@/types/api'
+import { useMessages } from './useMessages'
 
 interface AuthState {
   access: string | null
@@ -24,6 +25,8 @@ export const useAuth = defineStore('auth', {
     async login(username: string, password: string) {
       const { data } = await api.post<TokenPair>('/api/token/', { username, password })
       this.setTokens(data)
+      // reset store
+      useMessages().resetStore()
     },
 
     async refreshToken() {

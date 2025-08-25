@@ -1,22 +1,177 @@
 import { defineStore } from 'pinia'
-import type { Message, MessageStatus, Paginated } from '@/types/api'
+import type {
+  Message,
+  MessageStatus,
+  Paginated,
+  ConversationDetail,
+  ConversationSummary,
+} from '@/types/api'
 import api from '@/api/http' // <-- au lieu de axios
+import { useAuth } from '@/store/useAuth'
+import { useUserGroupStore } from '@/store/useUserGroupStore'
 
 interface MessagesState {
+  conversationsSummaries: ConversationSummary[] // sidebar
+  threads: Record<string, ConversationDetail> // cache par convId
   inbox: MessageStatus[]
   sent: Message[]
   userFilter: number | null
+  activeConversationId: string | null // pratique
 }
 
 export const useMessages = defineStore('messages', {
   state: (): MessagesState => ({
+    conversationsSummaries: [],
+    threads: {},
     inbox: [],
     sent: [],
-
     userFilter: null,
+    activeConversationId: null,
   }),
 
   actions: {
+    resetThread(convId: string) {
+      // supprime proprement la clé du cache (réactif en Vue 3)
+      delete this.threads[convId]
+    },
+    resetStore() {
+      this.$reset()
+    },
+    // 1) Sidebar
+    async fetchConversationsSummary() {
+      const { data } = await api.get<ConversationSummary[]>('/api/messages/conversations-summary/')
+      // tri desc
+      this.conversationsSummaries = data.sort((a, b) =>
+        (b.last_message_at || '').localeCompare(a.last_message_at || ''),
+      )
+    },
+    getConversationSummary(convId: string) {
+      return this.conversationsSummaries.find((s) => s.id === convId) ?? null
+    },
+    async openConversation(convId: string) {
+      this.activeConversationId = convId
+
+      // 1) refresh des summaries (badges à jour)
+      await this.fetchConversationsSummary()
+
+      // 2) si la conv a des unread -> reset cache + refetch du thread
+      const summary = this.conversationsSummaries.find((s) => s.id === convId)
+      if (!summary || (summary.unread_count ?? 0) > 0) {
+        this.resetThread(convId)
+      }
+
+      // si pas en cache => c'est forcement la demande d'un converstation , nouvelle,
+      // créer un squelette immédiatement pour l’UI
+      if (!this.threads[convId]) {
+        this.ensureEmptyThread(convId, summary)
+      } else {
+        // c'est un thread reel... donc on recharge, si besoin
+        // 3) (re)charger le thread (soit depuis zéro si reset, soit pour être sûr d'être frais)
+        await this.fetchThread(convId)
+      }
+    },
+
+    async ensureEmptyThread(convId: string) {
+      const ug = useUserGroupStore()
+
+      // Charger users/groups si pas encore fait
+      if (!ug.loaded) {
+        try {
+          await ug.fetch()
+        } catch (_) {
+          /* noop */
+        }
+      }
+
+      // Déterminer type + id numérique
+      const isUser = convId.startsWith('user-')
+      const idStr = convId.slice(isUser ? 5 : 6) // "user-"=5, "group-"=6
+      const id = Number(idStr)
+
+      // Trouver un label par défaut (si pas fourni par summary)
+      let fallbackLabel = convId
+      if (isUser) {
+        const u = ug.getUserById(id)
+        fallbackLabel = u?.username ?? `Utilisateur ${id}`
+      } else {
+        const g = ug.getGroupById(id)
+        fallbackLabel = g?.groupname ?? `Groupe ${id}`
+      }
+
+      const label = fallbackLabel
+      const type: 'user' | 'group' = isUser ? 'user' : 'group'
+
+      this.threads[convId] = {
+        id: convId,
+        type,
+        label,
+        messages: [],
+        lastMessage: null,
+        lastMessageFromMe: false,
+      }
+    },
+
+    // 2) Détail d’un thread (user ou group)
+    // change la signature
+    async fetchThread(convId: string, opts: { force?: boolean } = {}) {
+      //  if (!opts.force && this.threads[convId]) return // garde le cache sauf si force
+
+      if (convId.startsWith('user-')) {
+        const uid = Number(convId.slice(5))
+        const { data } = await api.get<Message[]>('/api/messages/thread/', {
+          params: { user: uid, mark_read: true },
+        })
+        this._setThreadFromMessages(convId, 'user', data)
+      } else if (convId.startsWith('group-')) {
+        const gid = Number(convId.slice(6))
+        const { data } = await api.get<Message[]>('/api/messages/thread/', {
+          params: { group: gid, mark_read: true },
+        })
+        this._setThreadFromMessages(convId, 'group', data)
+      }
+    },
+
+    _setThreadFromMessages(convId: string, type: 'user' | 'group', msgs: Message[]) {
+      msgs.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+      const last = msgs.at(-1) ?? null
+      const label = this.conversationsSummaries.find((s) => s.id === convId)?.label || convId
+      this.threads[convId] = {
+        id: convId,
+        type,
+        label,
+        messages: msgs,
+        lastMessage: last,
+        lastMessageFromMe: last ? last.sender.id === useAuth().user?.id : false,
+      }
+    },
+
+    // Envoi d’un message en utilisant activeConversationId
+    async sendMessageToActive(
+      text: string,
+      image?: File | null,
+      latitude?: string | null,
+      longitude?: string | null,
+    ) {
+      if (!this.activeConversationId) return
+      const fd = new FormData()
+      if (text.trim()) fd.append('text', text.trim())
+      if (image) fd.append('image', image)
+      if (latitude) fd.append('latitude', latitude)
+      if (longitude) fd.append('longitude', longitude)
+
+      const convId = this.activeConversationId
+      if (convId.startsWith('user-')) {
+        fd.append('recipient', convId.slice(5))
+      } else {
+        fd.append('recipient_group', convId.slice(6))
+      }
+
+      await api.post('/api/messages/send/', fd)
+      // Refresh juste le thread et la liste
+      delete this.threads[convId] // simple: on invalide le cache
+      await Promise.all([this.fetchThread(convId), this.fetchConversationsSummary()])
+    },
+
     async fetchInbox() {
       try {
         const response = await api.get<Paginated<MessageStatus>>('/api/messages/messages/', {

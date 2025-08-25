@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Message, Conversation } from '@/types/api'
-import { ref, watch, nextTick, onMounted, computed } from 'vue'
-
+import type { Message } from '@/types/api'
+import { ref, nextTick, onMounted, computed } from 'vue'
+import { formatWhen } from '@/helpers/datehelper'
 const props = defineProps<{
-  messages: any[]
+  messages: Message[]
   currentUserId: number
 }>()
 
@@ -43,46 +43,13 @@ const container = ref<HTMLDivElement | null>(null)
 async function scrollToBottom() {
   await nextTick()
   if (container.value) {
-    // container.value.scrollTop = container.value.scrollHeight
+    container.value.scrollTop = container.value.scrollHeight
   }
 }
 
 onMounted(() => {
   scrollToBottom()
 })
-
-watch(
-  () => props.messages,
-  () => {
-    scrollToBottom()
-  },
-  { deep: true },
-)
-
-/** Format “il y a 30 s / 40 min / 3 h / 2 j”, sinon date ex: “20 mars 25” */
-function formatWhen(iso: string): string {
-  const now = new Date()
-  const then = new Date(iso)
-  const diffMs = now.getTime() - then.getTime()
-
-  // bornes
-  const sec = Math.floor(diffMs / 1000)
-  const min = Math.floor(sec / 60)
-  const hour = Math.floor(min / 60)
-  const day = Math.floor(hour / 24)
-
-  if (sec < 60) return `il y a ${sec}s`
-  if (min < 60) return `il y a ${min} min`
-  if (hour < 24) return `il y a ${hour} h`
-  if (day < 7) return `il y a ${day} j`
-
-  // Au-delà de 7 jours → date courte en FR (ex: 20 mars 25)
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: '2-digit',
-    month: 'long',
-    year: '2-digit',
-  }).format(then)
-}
 
 /** Affiche le nom de l’auteur (utile même pour tes propres messages dans un groupe) */
 function authorName(msg: Message): string {
