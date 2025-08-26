@@ -42,9 +42,16 @@ REST_FRAMEWORK = {
 # Swagger setting
 SPECTACULAR_SETTINGS = {
     "TITLE": "API Nuage Fernandez",
-    "DESCRIPTION": "API REST pour le cloud personnel",
+    "DESCRIPTION": "API REST pour le cloud NuageFernandez",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "auth", "description": "Login/refresh/logout"},
+        {"name": "liste", "description": "Listings pour la sidebar, etc."},
+        {"name": "actions", "description": "Actions de chat (envoyer, thread, etc.)"},
+        {"name": "user & group", "description": "Endpoints utilisateurs et groupes"},
+        {"name": "oldstuff", "description": "Anciennes routes (deprecated)"},
+    ],
 }
 # Middlewares
 MIDDLEWARE = [

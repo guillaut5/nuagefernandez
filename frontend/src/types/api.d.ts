@@ -36,13 +36,14 @@ export interface Message {
   sender: UserSummary
   recipient: UserSummary | null
   recipient_group: GroupSummary | null
+  deleted_for_all: boolean
 }
 
 export interface MessageStatus {
   id: number
   message: Message
   is_read: boolean
-  is_deleted: boolean
+  is_hidden: boolean
   read_at: string | null
 }
 

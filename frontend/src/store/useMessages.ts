@@ -17,6 +17,7 @@ interface MessagesState {
   sent: Message[]
   userFilter: number | null
   activeConversationId: string | null // pratique
+  _pending: Set<string> // évite doubles clics
 }
 
 export const useMessages = defineStore('messages', {
@@ -27,6 +28,7 @@ export const useMessages = defineStore('messages', {
     sent: [],
     userFilter: null,
     activeConversationId: null,
+    _pending: new Set<string>(),
   }),
 
   actions: {
@@ -37,6 +39,94 @@ export const useMessages = defineStore('messages', {
     resetStore() {
       this.$reset()
     },
+
+    // ---------------------------
+    // SUPPRIMER POUR TOUS
+    // ---------------------------
+    async deleteForAll(messageId: number, opts: { convId?: string } = {}) {
+      const pendingKey = `delete_for_all:${messageId}`
+      if (this._pending.has(pendingKey)) return
+      this._pending.add(pendingKey)
+
+      // Optimistic: on marque le message comme supprimé globalement
+      const snapshots: Array<{ convId: string; index: number; before: Message }> = []
+      const convIds = opts.convId ? [opts.convId] : Object.keys(this.threads)
+
+      for (const cid of convIds) {
+        const thr = this.threads[cid]
+        if (!thr) continue
+        const idx = thr.messages.findIndex((m) => m.id === messageId)
+        if (idx === -1) continue
+        const before = { ...thr.messages[idx] }
+        snapshots.push({ convId: cid, index: idx, before })
+        thr.messages[idx] = { ...thr.messages[idx], deleted_for_all: true } as Message
+        // lastMessage reste cohérent (le message reste dans la timeline)
+      }
+
+      try {
+        await api.post(`/api/messages/messages/${messageId}/delete_for_all/`)
+      } catch (e) {
+        // rollback si erreur
+        for (const s of snapshots) {
+          const thr = this.threads[s.convId]
+          if (thr && thr.messages[s.index]) thr.messages[s.index] = s.before
+        }
+        this._pending.delete(pendingKey)
+        throw e
+      }
+
+      this._pending.delete(pendingKey)
+    },
+
+    // ---------------------------
+    // MASQUER POUR MOI
+    // ---------------------------
+    async hideMessage(messageId: number, opts: { convId?: string } = {}) {
+      const pendingKey = `hide:${messageId}`
+      if (this._pending.has(pendingKey)) return
+      this._pending.add(pendingKey)
+
+      // Optimistic: on enlève le message de MES threads (il disparaît pour moi)
+      const removed: Array<{ convId: string; index: number; msg: Message }> = []
+      const convIds = opts.convId ? [opts.convId] : Object.keys(this.threads)
+
+      const recompute = (cid: string) => {
+        const thr = this.threads[cid]
+        if (!thr) return
+        const last = thr.messages.at(-1) ?? null
+        const me = useAuth().user?.id
+        thr.lastMessage = last
+        thr.lastMessageFromMe = !!(last && me && last.sender?.id === me)
+      }
+
+      for (const cid of convIds) {
+        const thr = this.threads[cid]
+        if (!thr) continue
+        const idx = thr.messages.findIndex((m) => m.id === messageId)
+        if (idx === -1) continue
+        const msg = thr.messages[idx]
+        removed.push({ convId: cid, index: idx, msg })
+        thr.messages.splice(idx, 1)
+        recompute(cid)
+      }
+
+      try {
+        await api.post(`/api/messages/messages/${messageId}/hide/`)
+      } catch (e) {
+        // rollback si erreur
+        for (const r of removed) {
+          const thr = this.threads[r.convId]
+          if (!thr) continue
+          thr.messages.splice(r.index, 0, r.msg)
+          recompute(r.convId)
+        }
+        this._pending.delete(pendingKey)
+        throw e
+      }
+
+      this._pending.delete(pendingKey)
+    },
+
     // 1) Sidebar
     async fetchConversationsSummary() {
       const { data } = await api.get<ConversationSummary[]>('/api/messages/conversations-summary/')
@@ -60,10 +150,11 @@ export const useMessages = defineStore('messages', {
         this.resetThread(convId)
       }
 
-      // si pas en cache => c'est forcement la demande d'un converstation , nouvelle,
+      // si summay et null => c'est forcement la demande d'un converstation qui n'existe pas dans la base,
+      // c'est donc un demande de converstation,
       // créer un squelette immédiatement pour l’UI
-      if (!this.threads[convId]) {
-        this.ensureEmptyThread(convId, summary)
+      if (!summary) {
+        this.ensureEmptyThread(convId)
       } else {
         // c'est un thread reel... donc on recharge, si besoin
         // 3) (re)charger le thread (soit depuis zéro si reset, soit pour être sûr d'être frais)
@@ -114,7 +205,7 @@ export const useMessages = defineStore('messages', {
     // 2) Détail d’un thread (user ou group)
     // change la signature
     async fetchThread(convId: string, opts: { force?: boolean } = {}) {
-      //  if (!opts.force && this.threads[convId]) return // garde le cache sauf si force
+      if (!opts.force && this.threads[convId]) return // garde le cache sauf si force
 
       if (convId.startsWith('user-')) {
         const uid = Number(convId.slice(5))

@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(
     operation_id="conversations_summary",
-    tags=["api"],
+    tags=["liste"],
     summary="Résumé des conversations de l’utilisateur courant",
     description=(
         "Renvoie la liste des conversations (directes et groupes) avec : "
@@ -252,6 +252,7 @@ def conversations_summary(request):
 ## -- Les Thread de conversation
 
 
+@extend_schema(tags=["liste"])
 class MessageThreadView(APIView):
     """
     GET /api/messages/thread/?user=<id>  ou  /api/messages/thread/?group=<id>
@@ -336,7 +337,7 @@ class MessageThreadView(APIView):
 
     @extend_schema(
         operation_id="messages_thread",
-        tags=["api"],
+        tags=["liste"],
         description=(
             "Retourne les messages d'une conversation.\n"
             "- 1-to-1 : tous les messages entre l’utilisateur courant et `user`.\n"
@@ -476,6 +477,7 @@ class MessageThreadView(APIView):
         return Response(data, status=200)
 
 
+@extend_schema(tags=["actions"])
 class SendMessageAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -536,6 +538,7 @@ class SendMessageAPIView(APIView):
         return Response({"success": True}, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(tags=["oldstuff"])
 class UserMessagesListAPIView(generics.ListAPIView):
     """
     GET /api/messages/  ->  Liste paginée des messages destinés à l'utilisateur
@@ -565,6 +568,7 @@ class UserMessagesListAPIView(generics.ListAPIView):
 
 
 # pour lister les message status
+@extend_schema(tags=["oldstuff"])
 class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
     """
     PATCH /api/message-status/<pk>/  ->  Marquer un message comme lu / supprimé
@@ -579,6 +583,7 @@ class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
         return MessageReadStatus.objects.filter(user=self.request.user)
 
 
+@extend_schema(tags=["actions"])
 class HideMessageAPIView(APIView):
     """
     POST /api/messages/{id}/hide/  -> masque le message pour l'utilisateur courant
@@ -610,6 +615,7 @@ class HideMessageAPIView(APIView):
         return Response({"status": "ok", "hidden": True})
 
 
+@extend_schema(tags=["actions"])
 class DeleteForAllMessageAPIView(APIView):
     """
     POST /api/messages/{id}/delete_for_all/  -> retire pour tout le monde
@@ -636,6 +642,7 @@ class DeleteForAllMessageAPIView(APIView):
 
 
 # - messages envoyés
+@extend_schema(tags=["oldstuff"])
 class UserSentMessagesListAPIView(generics.ListAPIView):
     """
     GET /api/messages/sent/  ->  Liste paginée des messages que l'utilisateur a envoyés.
@@ -657,6 +664,7 @@ class UserSentMessagesListAPIView(generics.ListAPIView):
 
 
 # -- tous les gropues
+@extend_schema(tags=["user & group"])
 class AllGroupsAPIView(generics.ListAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
@@ -664,6 +672,7 @@ class AllGroupsAPIView(generics.ListAPIView):
 
 
 # - kes gropues auxquel j'appartiens
+@extend_schema(tags=["user & group"])
 class UserGroupsAPIView(generics.ListAPIView):
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -672,7 +681,8 @@ class UserGroupsAPIView(generics.ListAPIView):
         return self.request.user.custom_user_groups.all()
 
 
-# - kes gropues auxquel j'appartiens
+# - Tous les user
+@extend_schema(tags=["user & group"])
 class UserAPIView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
