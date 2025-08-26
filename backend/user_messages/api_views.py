@@ -1,42 +1,92 @@
 # views.py
 
-from rest_framework import generics, permissions
-from django.db.models import Q
-from .models import Message, Group, MessageReadStatus
-from .pagination import FifteenPerPagePagination
-from .serializers import (
-    GroupSerializer,
-    UserSerializer,
-    MessageReadStatusUpdateSerializer,
-    MessageReadStatusSerializer,
-    MessageSerializer,
-    MessageThreadSerializer,
-)
-from django.contrib.auth.models import User
-
-# views.py
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.files.base import ContentFile
-from .models import Message, MessageReadStatus, Group
-from .serializers import MessageSerializer, MessageSendSerializer
-import base64
+# Standard library
 import logging
-from django.utils.timezone import now
-from channels.layers import get_channel_layer
+
+# Third-party / Django
 from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.contrib.auth.models import User
+from django.db.models import Max, Q
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.timezone import now
+
+# DRF
+from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Max, Count, Q
-from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+
+# drf-spectacular (OpenAPI)
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    OpenApiTypes,
+    extend_schema,
+)
+
+# Local app
+from .models import Group, Message, MessageReadStatus
+from .pagination import FifteenPerPagePagination
+from .serializers import (
+    ConversationSummarySerializer,
+    GroupSerializer,
+    MessageReadStatusSerializer,
+    MessageReadStatusUpdateSerializer,
+    MessageSendSerializer,
+    MessageSerializer,
+    MessageThreadSerializer,
+    UserSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # -- les conversations summary
+
+
+@extend_schema(
+    operation_id="conversations_summary",
+    tags=["api"],
+    summary="Résumé des conversations de l’utilisateur courant",
+    description=(
+        "Renvoie la liste des conversations (directes et groupes) avec : "
+        "`id`, `label`, `type`, `last_message_at`, `unread_count`. "
+        "Triée par `last_message_at` décroissant."
+    ),
+    # Pas de query params ici
+    responses={
+        200: OpenApiResponse(
+            response=ConversationSummarySerializer(many=True),
+            description="Liste des conversations.",
+        ),
+        401: OpenApiResponse(description="Authentification requise."),
+    },
+    examples=[
+        OpenApiExample(
+            "Exemple mixte (user + group)",
+            value=[
+                {
+                    "id": "user-12",
+                    "label": "renaud",
+                    "type": "user",
+                    "last_message_at": "2025-08-22T14:25:37Z",
+                    "unread_count": 2,
+                },
+                {
+                    "id": "group-5",
+                    "label": "Classe de maths",
+                    "type": "group",
+                    "last_message_at": "2025-08-21T19:03:12Z",
+                    "unread_count": 0,
+                },
+            ],
+        ),
+    ],
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def conversations_summary(request):
@@ -284,6 +334,81 @@ class MessageThreadView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        operation_id="messages_thread",
+        tags=["api"],
+        description=(
+            "Retourne les messages d'une conversation.\n"
+            "- 1-to-1 : tous les messages entre l’utilisateur courant et `user`.\n"
+            "- group : tous les messages du groupe `group`.\n\n"
+            "Contrainte : **exactement un** des deux paramètres `user` ou `group`."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="user",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="ID d'un autre utilisateur (mutuellement exclusif avec `group`).",
+            ),
+            OpenApiParameter(
+                name="group",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="ID d'un groupe (mutuellement exclusif avec `user`).",
+            ),
+            OpenApiParameter(
+                name="mark_read",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Marque les messages comme lus pour l’utilisateur courant (par défaut: false).",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=MessageSerializer(many=True),
+                description="Liste triée par timestamp ASC.",
+            ),
+            400: OpenApiResponse(description="Erreur de validation des paramètres."),
+            403: OpenApiResponse(description="Accès refusé (sécurité)."),
+        },
+        examples=[
+            OpenApiExample(
+                "Exemple 1-to-1",
+                value=[
+                    {
+                        "id": 101,
+                        "text": "Salut, tu es dispo demain ?",
+                        "image": "/media/image/aeax.jpg",
+                        "timestamp": "2025-08-22T14:20:01Z",
+                        "latitude": None,
+                        "longitude": None,
+                        "sender": {"id": 3, "username": "guillaume"},
+                        "recipient": {"id": 12, "username": "renaud"},
+                        "recipient_group": None,
+                    }
+                ],
+            ),
+            OpenApiExample(
+                "Exemple groupe",
+                value=[
+                    {
+                        "id": 201,
+                        "text": "Bienvenue dans le groupe !",
+                        "image": None,
+                        "timestamp": "2025-08-22T09:10:30Z",
+                        "latitude": None,
+                        "longitude": None,
+                        "sender": {"id": 5, "username": "prof"},
+                        "recipient": None,
+                        "recipient_group": {"id": 7, "name": "Classe de maths"},
+                    }
+                ],
+            ),
+        ],
+    )
     def get(self, request):
         me = request.user
         user_id = request.query_params.get("user")
@@ -426,8 +551,8 @@ class UserMessagesListAPIView(generics.ListAPIView):
         return (
             MessageReadStatus.objects.filter(
                 user=user,
-                is_deleted=False,
-                message__deleted=False,
+                is_hidden=False,
+                message__deleted_for_all=False,
             )
             .select_related(
                 "message",
@@ -439,6 +564,7 @@ class UserMessagesListAPIView(generics.ListAPIView):
         )
 
 
+# pour lister les message status
 class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
     """
     PATCH /api/message-status/<pk>/  ->  Marquer un message comme lu / supprimé
@@ -451,6 +577,62 @@ class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
 
     def get_queryset(self):
         return MessageReadStatus.objects.filter(user=self.request.user)
+
+
+class HideMessageAPIView(APIView):
+    """
+    POST /api/messages/{id}/hide/  -> masque le message pour l'utilisateur courant
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _is_participant(self, user, msg: Message) -> bool:
+        if msg.sender_id == user.id:
+            return True
+        if msg.recipient_id and msg.recipient_id == user.id:
+            return True
+        if (
+            msg.recipient_group_id
+            and user.groups.filter(id=msg.recipient_group_id).exists()
+        ):
+            return True
+        return False
+
+    def post(self, request, pk: int):
+        msg = get_object_or_404(Message, pk=pk)
+        if not self._is_participant(request.user, msg):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        mrs, _ = MessageReadStatus.objects.get_or_create(message=msg, user=request.user)
+        if not mrs.is_hidden:
+            mrs.is_hidden = True
+            mrs.save(update_fields=["is_hidden"])
+        return Response({"status": "ok", "hidden": True})
+
+
+class DeleteForAllMessageAPIView(APIView):
+    """
+    POST /api/messages/{id}/delete_for_all/  -> retire pour tout le monde
+    Autorisé: expéditeur
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk: int):
+        msg = get_object_or_404(Message, pk=pk)
+        if msg.sender_id != request.user.id:
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        if not msg.deleted_for_all:
+            msg.deleted_for_all = True
+            # Optionnel si tu as ces champs :
+            msg.deleted_at = timezone.now()
+            msg.deleted_by = request.user
+            msg.save(update_fields=["deleted_for_all", "deleted_at", "deleted_by"])
+            # (Pédago) tu peux garder text/image intacts côté base
+            # OU anonymiser: msg.text="", msg.image=None, puis save()
+
+        return Response({"status": "ok", "deleted_for_all": True})
 
 
 # - messages envoyés
@@ -467,7 +649,7 @@ class UserSentMessagesListAPIView(generics.ListAPIView):
         return (
             Message.objects.filter(
                 sender=self.request.user,
-                deleted=False,
+                deleted_for_all=False,
             )
             .select_related("sender", "recipient", "recipient_group")
             .order_by("-timestamp")

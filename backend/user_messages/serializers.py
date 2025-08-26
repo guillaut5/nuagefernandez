@@ -5,6 +5,14 @@ from .models import Message, Group, MessageReadStatus
 from django.contrib.auth.models import User
 
 
+class ConversationSummarySerializer(serializers.Serializer):
+    id = serializers.CharField(help_text="user-<id> ou group-<id>")
+    label = serializers.CharField()
+    type = serializers.ChoiceField(choices=["user", "group"])
+    last_message_at = serializers.DateTimeField()
+    unread_count = serializers.IntegerField()
+
+
 class UserSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = User  # ou ton modèle utilisateur personnalisé
@@ -84,7 +92,7 @@ class MessageReadStatusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MessageReadStatus
-        fields = ["id", "message", "is_read", "is_deleted", "read_at"]
+        fields = ["id", "message", "is_read", "is_hidden", "read_at"]
 
 
 class MessageReadStatusUpdateSerializer(serializers.ModelSerializer):
@@ -94,7 +102,7 @@ class MessageReadStatusUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MessageReadStatus
-        fields = ["is_read", "is_deleted", "read_at"]
+        fields = ["is_read", "is_hidden", "read_at"]
         read_only_fields = ["read_at"]
 
     def update(self, instance, validated_data):

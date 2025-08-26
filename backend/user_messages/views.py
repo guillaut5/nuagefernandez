@@ -96,7 +96,9 @@ def registration_success(request):
 @login_required
 def sent_messages(request):
     user = request.user
-    messages = Message.objects.filter(sender=user, deleted=False).order_by("-timestamp")
+    messages = Message.objects.filter(sender=user, deleted_for_all=False).order_by(
+        "-timestamp"
+    )
     return render(request, "user_messages/sent.html", {"messages": messages})
 
 
@@ -108,19 +110,21 @@ def message_list(request):
 
     statuses = MessageReadStatus.objects.filter(
         user=request.user,
-        is_deleted=False,
-        message__deleted=False,  # 👈 exclure les messages supprimés par l'émetteur
+        is_hidden=False,
+        message__deleted_for_all=False,  # 👈 exclure les messages hidden par l'émetteur
     ).select_related("message")
     # Marquer comme lu automatiquement
     statuses.filter(is_read=False).update(is_read=True, read_at=timezone.now())
 
     received_messages = (
-        Message.objects.filter(deleted=False, recipient=user)
+        Message.objects.filter(deleted_for_all=False, recipient=user)
         | Message.objects.filter(
-            deleted=False, recipient__isnull=True, recipient_group__in=user_groups
+            deleted_for_all=False,
+            recipient__isnull=True,
+            recipient_group__in=user_groups,
         )
         | Message.objects.filter(
-            deleted=False, recipient__isnull=True, recipient_group__isnull=True
+            deleted_for_all=False, recipient__isnull=True, recipient_group__isnull=True
         )
     )
 
@@ -136,7 +140,7 @@ def message_list(request):
 def delete_received_message(request, status_id):
     status = get_object_or_404(MessageReadStatus, id=status_id, user=request.user)
     if request.method == "POST":
-        status.is_deleted = True
+        status.is_hidden = True
         status.save()
     return redirect("user_messages:user_messages")
 
@@ -206,7 +210,7 @@ def send_message(request):
 def delete_message(request, message_id):
     msg = Message.objects.get(id=message_id, sender=request.user)
     if msg:
-        msg.deleted = True
+        msg.delete_for_all = True
         msg.save()
         log_action(
             "SUPPRESSION",

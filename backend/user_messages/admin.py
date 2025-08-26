@@ -10,10 +10,18 @@ class MessageAdmin(admin.ModelAdmin):
         "recipient",
         "recipient_group",
         "timestamp",
-        "deleted",
+        "deleted_for_all",
+        "deleted_at",
+        "deleted_by",
         "ip_address",
     )
-    list_filter = ("deleted", "timestamp", "sender", "recipient", "recipient_group")
+    list_filter = (
+        "deleted_for_all",
+        "timestamp",
+        "sender",
+        "recipient",
+        "recipient_group",
+    )
     search_fields = (
         "text",
         "sender__username",
@@ -34,7 +42,7 @@ class MessageReadStatusAdmin(admin.ModelAdmin):
         "user",
         "sender",
         "is_read",
-        "is_deleted",
+        "is_hidden",
         "read_at",
     )
 
@@ -46,7 +54,7 @@ class MessageReadStatusAdmin(admin.ModelAdmin):
         ("message__sender", admin.RelatedOnlyFieldListFilter),
         ("user", admin.RelatedOnlyFieldListFilter),
         "is_read",
-        "is_deleted",
+        "is_hidden",
         "read_at",
     )
 
