@@ -7,7 +7,8 @@ import logging
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth.models import User
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Exists, OuterRef
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
@@ -148,7 +149,9 @@ def conversations_summary(request):
     # Direct: dernières dates par (autre utilisateur)
     direct = (
         Message.objects.filter(
-            Q(sender=user) | Q(recipient=user), recipient_group__isnull=True
+            Q(sender=user) | Q(recipient=user),
+            recipient_group__isnull=True,
+            deleted_for_all=False,
         )
         .values("sender_id", "recipient_id")
         .annotate(last_ts=Max("timestamp"))
@@ -175,7 +178,9 @@ def conversations_summary(request):
     # Unread counts (si tu as MessageReadStatus(message, user, is_read))
     # Exemple simple: compter les non-lus par conv_id
     unread = {}
-    qs = MessageReadStatus.objects.filter(user=user, is_read=False).values("message_id")
+    qs = MessageReadStatus.objects.filter(
+        user=user, is_read=False, is_hidden=False
+    ).values("message_id")
     # Récupère les messages non lus pour mapper vers conv_id
     unread_msgs = (
         Message.objects.filter(
@@ -425,7 +430,18 @@ class MessageThreadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        qs = Message.objects.select_related("sender", "recipient", "recipient_group")
+        # Point de départ : tous les messages non supprimés globalement
+        qs = Message.objects.select_related(
+            "sender", "recipient", "recipient_group"
+        ).filter(deleted_for_all=False)
+
+        # Sous-requête : "y a-t-il un MessageReadStatus pour CE message (OuterRef('pk'))
+        # appartenant à l'utilisateur me ET avec is_hidden=True ?"
+        hidden_for_me = MessageReadStatus.objects.filter(
+            message_id=OuterRef("pk"),
+            user=me,
+            is_hidden=True,
+        )
 
         if user_id:
             try:
@@ -440,6 +456,16 @@ class MessageThreadView(APIView):
             )
             qs = qs.filter(thread_filter, recipient_group__isnull=True).order_by(
                 "timestamp"
+            )
+
+            # Annote chaque message avec un booléen _hidden:
+            #   True  si la sous-requête renvoie au moins une ligne (=> le message est caché pour me)
+            #   False sinon.
+            # Puis on garde uniquement _hidden=False (donc non caché) et on ordonne par date.
+            qs = (
+                qs.annotate(_hidden=Exists(hidden_for_me))
+                .filter(_hidden=False)
+                .order_by("timestamp")
             )
 
             # Il n'y a pas de groupe ici, donc pas de vérif d'appartenance
@@ -465,7 +491,15 @@ class MessageThreadView(APIView):
                 return Response({"detail": "Accès refusé à ce groupe."}, status=403)
 
             qs = qs.filter(recipient_group_id=gid).order_by("timestamp")
-
+            # Annote chaque message avec un booléen _hidden:
+            #   True  si la sous-requête renvoie au moins une ligne (=> le message est caché pour me)
+            #   False sinon.
+            # Puis on garde uniquement _hidden=False (donc non caché) et on ordonne par date.
+            qs = (
+                qs.annotate(_hidden=Exists(hidden_for_me))
+                .filter(_hidden=False)
+                .order_by("timestamp")
+            )
             if mark_read:
                 # Exemple : marquer comme lus les messages du groupe pour me (hors messages envoyés par me)
                 ids = list(qs.exclude(sender_id=me.id).values_list("id", flat=True))

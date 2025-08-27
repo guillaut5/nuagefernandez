@@ -64,4 +64,4 @@ class MessageReadStatus(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.message.id} - Lu: {self.is_read} / Supprimé: {self.is_deleted}"
+        return f"{self.user.username} - {self.message.id} - Lu: {self.is_read} / Supprimé: {self.is_hidden}"
