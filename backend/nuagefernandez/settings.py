@@ -35,7 +35,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Rest Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "nuagefernandez.api.auth.authentification.CookieJWTAuthentication",
+        # "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

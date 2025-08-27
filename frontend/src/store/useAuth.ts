@@ -23,7 +23,7 @@ export const useAuth = defineStore('auth', {
 
   actions: {
     async login(username: string, password: string) {
-      const { data } = await api.post<TokenPair>('/api/token/', { username, password })
+      const { data } = await api.post<TokenPair>('/token/', { username, password })
       this.setTokens(data)
       // reset store
       useMessages().resetStore()
@@ -32,7 +32,7 @@ export const useAuth = defineStore('auth', {
     async refreshToken() {
       if (!this.refresh) return
       try {
-        const { data } = await api.post<{ access: string }>('/api/token/refresh/', {
+        const { data } = await api.post<{ access: string }>('/token/refresh/', {
           refresh: this.refresh,
         })
         this.setTokens({ access: data.access, refresh: this.refresh })

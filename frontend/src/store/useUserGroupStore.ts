@@ -13,8 +13,8 @@ export const useUserGroupStore = defineStore('user-group-store', {
     async fetch() {
       if (this.loaded) return
       const [{ data: users }, { data: groups }] = await Promise.all([
-        api.get<UserSummary[]>('/api/messages/users/'),
-        api.get<GroupSummary[]>('/api/messages/my-groups/'),
+        api.get<UserSummary[]>('/messages/users/'),
+        api.get<GroupSummary[]>('/messages/my-groups/'),
       ])
       this.users = users
       this.groups = groups

@@ -1,5 +1,11 @@
 // http.ts — Client Axios avec gestion complète du JWT (access + refresh)
-import axios, { AxiosError, AxiosHeaders, type AxiosRequestConfig } from 'axios'
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { useAuth } from '@/store/useAuth'
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -47,9 +53,16 @@ declare module 'axios' {
   }
 }
 
+export const base_url = '/api'
+
 // Instance Axios de l’app
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  baseURL: base_url,
+  withCredentials: true,
+  // ⚠️ Important :
+  // En DEV : c’est Vite (vite.config.ts → server.proxy) qui redirige /api vers http://localhost:8000
+  // En PROD / PREPROD : c’est Nginx (ou le CDN) qui sert la SPA et proxyfie /api vers Django
+  // ⇒ Côté front on reste toujours en URL relative (/api), pas besoin de changer de config
 })
 
 // ───────────────────────────────────────────────────────────────────────────────

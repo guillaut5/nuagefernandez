@@ -9,7 +9,7 @@ import type {
 import api from '@/api/http' // <-- au lieu de axios
 import { useAuth } from '@/store/useAuth'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
-
+import { base_url } from '@/api/http'
 interface MessagesState {
   conversationsSummaries: ConversationSummary[] // sidebar
   threads: Record<string, ConversationDetail> // cache par convId
@@ -18,6 +18,10 @@ interface MessagesState {
   userFilter: number | null
   activeConversationId: string | null // pratique
   _pending: Set<string> // évite doubles clics
+
+  // --- SSE ---
+  _es: EventSource | null // instance EventSource
+  _sseReady: boolean // pour éviter init plusieurs fois
 }
 
 export const useMessages = defineStore('messages', {
@@ -29,6 +33,8 @@ export const useMessages = defineStore('messages', {
     userFilter: null,
     activeConversationId: null,
     _pending: new Set<string>(),
+    _es: null,
+    _sseReady: false,
   }),
 
   actions: {
@@ -38,6 +44,105 @@ export const useMessages = defineStore('messages', {
     },
     resetStore() {
       this.$reset()
+    },
+    /**
+     * Appeler UNE FOIS au boot de l'app (ex: dans main.ts)
+     * - démarre le SSE si on est authentifié
+     * - écoute les changements du store d'auth pour start/stop automatiquement
+     */
+    initRealtime() {
+      if (this._sseReady) return
+      this._sseReady = true
+
+      const auth = useAuth()
+
+      // Démarrage à chaud si déjà connecté
+      if (auth.access) {
+        this._startSSE()
+      }
+
+      // Sur changement de tokens: (logout -> stop, login/refresh -> restart)
+      auth.$subscribe((_mutation, state) => {
+        if (state.access) {
+          // access présent -> (re)lancer SSE
+          this._restartSSE()
+        } else {
+          // plus d’access -> stopper SSE
+          this._stopSSE()
+        }
+      })
+
+      // Nettoyage à la fermeture d’onglet
+      window.addEventListener('beforeunload', this._stopSSE)
+      // (optionnel) Pause/reprise selon visibilité onglet
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) return
+        // Au retour d'onglet, on remet les summaries à jour
+        this.fetchConversationsSummary().catch(() => {})
+        // et on force un refresh du thread actif si besoin
+        if (this.activeConversationId) {
+          this.fetchThread(this.activeConversationId, { force: true }).catch(() => {})
+        }
+      })
+    },
+
+    _restartSSE() {
+      this._stopSSE()
+      this._startSSE()
+    },
+
+    _stopSSE() {
+      try {
+        this._es?.close()
+      } catch {}
+      this._es = null
+    },
+
+    _startSSE() {
+      const auth = useAuth()
+      if (!auth.access || this._es) return
+
+      // -------------------------------
+      // A) COOKIES HTTPONLY (recommandé)
+      //    - Ton backend lit le JWT dans un cookie HttpOnly (CookieJWTAuthentication)
+      //    - Ici on n’a RIEN à passer (pas d’Authorization, pas de token dans l’URL)
+      // -------------------------------
+
+      const url = `${base_url}/messages/sse/messages/`
+      const es = new EventSource(url, { withCredentials: true } /*si cross-site + CORS */)
+
+      es.onopen = () => {
+        console.info('SSE ouvert')
+      }
+
+      es.onmessage = async (evt) => {
+        try {
+          console.info('rcv sse event')
+          const data = JSON.parse(evt.data)
+          console.info(data)
+          if (data.kind !== 'message') return
+          const convId = data.conv_id as string
+
+          // Si la conversation est active -> rafraîchir ce thread + mark_read
+          if (this.activeConversationId === convId) {
+            delete this.threads[convId]
+            await this.fetchThread(convId, { force: true })
+            //await api.post('/messages/mark_read/', { conv_id: convId }).catch(() => {})
+          }
+
+          // Dans tous les cas -> rafraîchir la sidebar (badges / last_message_at)
+          await this.fetchConversationsSummary()
+        } catch (e) {
+          console.warn('SSE parse error', e)
+        }
+      }
+
+      es.onerror = () => {
+        // EventSource retente automatiquement. On peut logguer si besoin.
+        console.warn('SSE error (auto-retry by browser)')
+      }
+
+      this._es = es
     },
 
     // ---------------------------
@@ -64,7 +169,7 @@ export const useMessages = defineStore('messages', {
       }
 
       try {
-        await api.post(`/api/messages/messages/${messageId}/delete_for_all/`)
+        await api.post(`/messages/messages/${messageId}/delete_for_all/`)
       } catch (e) {
         // rollback si erreur
         for (const s of snapshots) {
@@ -111,7 +216,7 @@ export const useMessages = defineStore('messages', {
       }
 
       try {
-        await api.post(`/api/messages/messages/${messageId}/hide/`)
+        await api.post(`/messages/messages/${messageId}/hide/`)
       } catch (e) {
         // rollback si erreur
         for (const r of removed) {
@@ -129,7 +234,7 @@ export const useMessages = defineStore('messages', {
 
     // 1) Sidebar
     async fetchConversationsSummary() {
-      const { data } = await api.get<ConversationSummary[]>('/api/messages/conversations-summary/')
+      const { data } = await api.get<ConversationSummary[]>('/messages/conversations-summary/')
       // tri desc
       this.conversationsSummaries = data.sort((a, b) =>
         (b.last_message_at || '').localeCompare(a.last_message_at || ''),
@@ -209,13 +314,13 @@ export const useMessages = defineStore('messages', {
 
       if (convId.startsWith('user-')) {
         const uid = Number(convId.slice(5))
-        const { data } = await api.get<Message[]>('/api/messages/thread/', {
+        const { data } = await api.get<Message[]>('/messages/thread/', {
           params: { user: uid, mark_read: true },
         })
         this._setThreadFromMessages(convId, 'user', data)
       } else if (convId.startsWith('group-')) {
         const gid = Number(convId.slice(6))
-        const { data } = await api.get<Message[]>('/api/messages/thread/', {
+        const { data } = await api.get<Message[]>('/messages/thread/', {
           params: { group: gid, mark_read: true },
         })
         this._setThreadFromMessages(convId, 'group', data)
@@ -257,7 +362,7 @@ export const useMessages = defineStore('messages', {
         fd.append('recipient_group', convId.slice(6))
       }
 
-      await api.post('/api/messages/send/', fd)
+      await api.post('/messages/send/', fd)
       // Refresh juste le thread et la liste
       delete this.threads[convId] // simple: on invalide le cache
       await Promise.all([this.fetchThread(convId), this.fetchConversationsSummary()])
@@ -265,7 +370,7 @@ export const useMessages = defineStore('messages', {
 
     async fetchInbox() {
       try {
-        const response = await api.get<Paginated<MessageStatus>>('/api/messages/messages/', {
+        const response = await api.get<Paginated<MessageStatus>>('/messages/messages/', {
           params: { user: this.userFilter },
         })
 
@@ -277,7 +382,7 @@ export const useMessages = defineStore('messages', {
 
     async fetchSent() {
       try {
-        const response = await api.get<Paginated<Message>>('/api/messages/sent/')
+        const response = await api.get<Paginated<Message>>('/messages/sent/')
         this.sent = response.data.results
       } catch (error) {
         console.error('Erreur lors du chargement des messages envoyés :', error)
@@ -294,7 +399,7 @@ export const useMessages = defineStore('messages', {
 
     async markAsRead(statusId: number) {
       try {
-        await api.patch<void>(`/api/messages/message-status/${statusId}/`, { is_read: true })
+        await api.patch<void>(`/messages/message-status/${statusId}/`, { is_read: true })
 
         const found = this.inbox.find((s) => s.id === statusId)
         if (found) {
@@ -308,7 +413,7 @@ export const useMessages = defineStore('messages', {
 
     async sendMessage(form: FormData) {
       try {
-        await api.post<void>('/api/messages/send/', form)
+        await api.post<void>('/messages/send/', form)
         // Optionnel : tu peux déclencher un rechargement de la boîte "sent"
         // await this.fetchSent()
       } catch (error) {

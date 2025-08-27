@@ -12,6 +12,7 @@ from user_messages.api_views import (
     MessageThreadView,
     HideMessageAPIView,
     DeleteForAllMessageAPIView,
+    SSEMessagesView,
 )
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -38,6 +39,7 @@ urlpatterns = [
         name="message-hide",
     ),
     path("send/", SendMessageAPIView.as_view(), name="send-message"),
+    path("sse/messages/", SSEMessagesView.as_view(), name="sse-messages"),
     # === user & group ========================================================
     path("groups/", AllGroupsAPIView.as_view(), name="all-groups"),
     path("my-groups/", UserGroupsAPIView.as_view(), name="user-groups"),

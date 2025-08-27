@@ -2,6 +2,7 @@
 
 # Standard library
 import logging
+import json
 
 # Third-party / Django
 from asgiref.sync import async_to_sync
@@ -12,6 +13,7 @@ from django.db.models import Max, Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
+from django.http import StreamingHttpResponse
 
 # DRF
 from rest_framework import generics, permissions, status
@@ -30,6 +32,7 @@ from drf_spectacular.utils import (
 )
 
 # Local app
+from nuagefernandez.api.auth.authentification import CookieJWTAuthentication
 from .models import Group, Message, MessageReadStatus
 from .pagination import FifteenPerPagePagination
 from .serializers import (
@@ -42,11 +45,75 @@ from .serializers import (
     MessageThreadSerializer,
     UserSerializer,
 )
+from user_messages.sse_bus import subscribe, unsubscribe, publish
+from user_messages.sse_renderer import EventStreamRenderer
 
 logger = logging.getLogger(__name__)
 
 
 # -- les conversations summary
+
+
+@extend_schema(
+    operation_id="sse_messages",
+    tags=["actions"],
+    summary="Flux SSE des messages",
+    description=(
+        "Établit une connexion SSE (Server-Sent Events) protégée par JWT en cookie. "
+        "Retourne un flux `text/event-stream` contenant les messages au format SSE.\n\n"
+        "Exemple de premier event :\n\n"
+        "```\n"
+        "event: hello\n"
+        "data: {}\n"
+        "\n```\n"
+        "Ensuite, chaque message :\n\n"
+        "```\n"
+        'data: {"from": "user-12", "text": "Salut !"}\n'
+        "\n```\n"
+    ),
+    responses={
+        200: OpenApiResponse(description="Flux SSE (content-type: text/event-stream)."),
+        401: OpenApiResponse(description="Authentification requise."),
+    },
+    examples=[
+        OpenApiExample(
+            "Premier event SSE",
+            value="event: hello\ndata: {}\n\n",
+            media_type="text/event-stream",
+        ),
+        OpenApiExample(
+            "Message SSE",
+            value='data: {"from": "user-12", "text": "Salut !"}\n\n',
+            media_type="text/event-stream",
+        ),
+    ],
+)
+class SSEMessagesView(APIView):
+    """
+    SSE protégé par JWT en cookie (HttpOnly).
+    """
+
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [EventStreamRenderer]  # <-- clé pour éviter le 406
+
+    def get(self, request):
+        user_id = request.user.id
+        q = subscribe(user_id)
+
+        def stream():
+            try:
+                yield "event: hello\ndata: {}\n\n"
+                while True:
+                    payload = q.get()
+                    yield f"data: {json.dumps(payload)}\n\n"
+            finally:
+                unsubscribe(user_id, q)
+
+        resp = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        resp["Cache-Control"] = "no-cache"
+        resp["X-Accel-Buffering"] = "no"
+        return resp
 
 
 @extend_schema(
@@ -511,6 +578,17 @@ class MessageThreadView(APIView):
         return Response(data, status=200)
 
 
+def _payload_for_user(msg, conv_id):
+    return {
+        "kind": "message",
+        "message_id": msg.id,
+        "conv_id": conv_id,  # "user-<id>" ou "group-<id>"
+        "preview": (msg.text or "")[:120],
+        "timestamp": msg.timestamp.isoformat(),
+        "sender": {"id": msg.sender_id, "username": msg.sender.username},
+    }
+
+
 @extend_schema(tags=["actions"])
 class SendMessageAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -539,24 +617,30 @@ class SendMessageAPIView(APIView):
         msg.user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
 
         msg.save()
-
+        # Statuts de lecture
+        targets = []
         # Création des statuts
         if msg.recipient:
             MessageReadStatus.objects.create(message=msg, user=msg.recipient)
+            targets = [msg.recipient_id]
+            conv_id = (
+                f"user-{msg.sender_id}"  # côté destinataire, la conv = user-<sender>
+            )
         elif msg.recipient_group:
             users = msg.recipient_group.members.exclude(id=request.user.id)
-            for user in users:
-                MessageReadStatus.objects.create(message=msg, user=user)
+            MessageReadStatus.objects.bulk_create(
+                [MessageReadStatus(message=msg, user=u) for u in users],
+                ignore_conflicts=True,
+            )
+            targets = list(users.values_list("id", flat=True))
+            conv_id = f"group-{msg.recipient_group_id}"
+        else:
+            conv_id = "unknown"
 
-        # Message WebSocket
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "messages_group",
-            {
-                "type": "new_message",
-                "message": f"Message reçu de {msg.sender.username}",
-            },
-        )
+        # ➜ Publier un event SSE pour chaque destinataire
+        payload = _payload_for_user(msg, conv_id)
+        for uid in targets:
+            publish(uid, payload)
 
         # Logging pédagogique
         timestamp = now().strftime("%Y-%m-%d %H:%M:%S")
@@ -570,51 +654,6 @@ class SendMessageAPIView(APIView):
         )
 
         return Response({"success": True}, status=status.HTTP_201_CREATED)
-
-
-@extend_schema(tags=["oldstuff"])
-class UserMessagesListAPIView(generics.ListAPIView):
-    """
-    GET /api/messages/  ->  Liste paginée des messages destinés à l'utilisateur
-    avec leur statut de lecture / suppression.
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = MessageReadStatusSerializer
-    pagination_class = FifteenPerPagePagination
-
-    def get_queryset(self):
-        user = self.request.user
-        return (
-            MessageReadStatus.objects.filter(
-                user=user,
-                is_hidden=False,
-                message__deleted_for_all=False,
-            )
-            .select_related(
-                "message",
-                "message__sender",
-                "message__recipient",
-                "message__recipient_group",
-            )
-            .order_by("-message__timestamp")
-        )
-
-
-# pour lister les message status
-@extend_schema(tags=["oldstuff"])
-class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
-    """
-    PATCH /api/message-status/<pk>/  ->  Marquer un message comme lu / supprimé
-    (uniquement si le statut appartient à l'utilisateur connecté).
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = MessageReadStatusUpdateSerializer
-    http_method_names = ["patch"]
-
-    def get_queryset(self):
-        return MessageReadStatus.objects.filter(user=self.request.user)
 
 
 @extend_schema(tags=["actions"])
@@ -673,6 +712,51 @@ class DeleteForAllMessageAPIView(APIView):
             # OU anonymiser: msg.text="", msg.image=None, puis save()
 
         return Response({"status": "ok", "deleted_for_all": True})
+
+
+@extend_schema(tags=["oldstuff"])
+class UserMessagesListAPIView(generics.ListAPIView):
+    """
+    GET /api/messages/  ->  Liste paginée des messages destinés à l'utilisateur
+    avec leur statut de lecture / suppression.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = MessageReadStatusSerializer
+    pagination_class = FifteenPerPagePagination
+
+    def get_queryset(self):
+        user = self.request.user
+        return (
+            MessageReadStatus.objects.filter(
+                user=user,
+                is_hidden=False,
+                message__deleted_for_all=False,
+            )
+            .select_related(
+                "message",
+                "message__sender",
+                "message__recipient",
+                "message__recipient_group",
+            )
+            .order_by("-message__timestamp")
+        )
+
+
+# pour lister les message status
+@extend_schema(tags=["oldstuff"])
+class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
+    """
+    PATCH /api/message-status/<pk>/  ->  Marquer un message comme lu / supprimé
+    (uniquement si le statut appartient à l'utilisateur connecté).
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = MessageReadStatusUpdateSerializer
+    http_method_names = ["patch"]
+
+    def get_queryset(self):
+        return MessageReadStatus.objects.filter(user=self.request.user)
 
 
 # - messages envoyés
