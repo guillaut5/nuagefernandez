@@ -1,0 +1,289 @@
+- hosts: nuage
+  become: yes
+  vars:
+    project_name: nuagefernandez
+    project_root: "/opt/{{ project_name }}"
+    project_root_backend_prod : "/opt/{{ project_name }}/backend"
+    backend_dir: "{{ (playbook_dir + '/../backend') | realpath }}"
+    frontend_dir: "{{ (playbook_dir + '/../frontend') | realpath }}"
+    venv_dir: "{{ project_root }}/venv"
+
+    # Process/app
+    app_user: "nuage"
+    app_group: "nuage"
+    web_group: "www-data"        # pour Nginx, accès au socket
+    service_name: "nuage"
+
+    # Django
+    django_settings_module: "nuagefernandez.settings"
+    wsgi_module: "nuagefernandez.wsgi:application"
+    gunicorn_workers: 3
+    gunicorn_socket: "{{ project_root }}/gunicorn.sock"
+
+    # Frontend
+    frontend_build_cmd: "npm run build"
+
+    # Paquets de base (simples et dispo via apt)
+    base_packages:
+      - git
+      - python3
+      - python3-venv
+      - python3-pip
+      - nginx
+
+
+  tasks:
+    - name: Ensure base packages
+      apt:
+        name: "{{ base_packages }}"
+        update_cache: yes
+        state: present
+
+
+    - name: Check current node version (if installed)
+      command: node -v
+      register: node_version
+      ignore_errors: true
+      changed_when: false
+
+    - set_fact:
+        node_version_clean: "{{ node_version.stdout | regex_replace('^v', '') }}"
+      when: node_version.rc == 0
+
+    - name: Remove Debian nodejs/npm
+      apt:
+        name: [nodejs, npm]
+        state: absent
+        purge: true
+        autoremove: true
+      when: node_version.rc != 0 or (node_version_clean.stdout is defined and node_version_clean.stdout is version('22.0.0', '<'))
+
+
+    - name: Download NodeSource 22 setup script
+      get_url:
+        url: https://deb.nodesource.com/setup_22.x
+        dest: /tmp/nodesource_setup.sh
+        mode: '0755'
+      when: node_version.rc != 0 or (node_version_clean.stdout is defined and node_version_clean.stdout is version('22.0.0', '<'))
+
+
+    - name: Run NodeSource setup script
+      command: /bin/bash /tmp/nodesource_setup.sh
+      when: node_version.rc != 0 or (node_version_clean.stdout is defined and node_version_clean.stdout is version('22.0.0', '<'))
+
+    - name: Install Node.js 22
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    - name: Check node
+      command: node -v
+      register: node_ver
+      changed_when: false
+
+    - debug: msg="Node version -> {{ node_ver.stdout }}"
+
+
+    - name: Verify Node/NPM versions
+      command: node -v
+      register: node_ver
+      changed_when: false
+    - debug:
+        msg: "Node version: {{ node_ver.stdout }}"
+
+    - name: Verify NPM version
+      command: npm -v
+      register: npm_ver
+      changed_when: false
+    - debug:
+        msg: "NPM version: {{ npm_ver.stdout }}"
+
+    - name: Ensure app group exists
+      group:
+        name: "{{ app_group }}"
+        state: present
+
+    - name: Ensure app user exists
+      user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        home: "{{ project_root }}"
+        shell: /usr/sbin/nologin
+        create_home: yes
+        system: yes
+
+    - name: Add nginx user to app group (for socket access)
+      user:
+        name: "{{ web_group }}"
+        groups: "{{ app_group }}"
+        append: yes
+
+    - name: Create project directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner | default(app_user) }}"
+        group: "{{ item.group | default(app_group) }}"
+        mode: "{{ item.mode | default('0755') }}"
+      loop:
+        - { path: "{{ project_root }}" }
+        - { path: "{{ project_root }}/logs" }
+
+    - name: Create Python venv
+      command: "python3 -m venv {{ venv_dir }}"
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+
+    - name: Install backend requirements
+      pip:
+        requirements: "{{ backend_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+
+    - name: Install frontend dependencies
+      npm:
+        path: "{{ frontend_dir }}"
+        production: false
+
+    - name: Build frontend
+      command: "{{ frontend_build_cmd }}"
+      args:
+        chdir: "{{ frontend_dir }}"
+
+    - name: Collect static (Django)
+      command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
+      args:
+        chdir: "{{ backend_dir }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+
+    - name: Run migrations (Django)
+      command: "{{ venv_dir }}/bin/python manage.py migrate --noinput"
+      args:
+        chdir: "{{ backend_dir }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+
+
+    - name: Ensure /opt/nuagefernandez belongs to nuage:www-data
+      file:
+        path: /opt/nuagefernandez
+        state: directory
+        owner: nuage
+        group: www-data
+        mode: "0770"
+        recurse: yes
+
+    - name: Deploy backend code to /opt
+      copy:
+        src: "{{ playbook_dir }}/../backend/"
+        dest: /opt/nuagefernandez/backend/
+        owner: nuage
+        group: www-data
+        mode: "0750"
+
+    - name: Deploy frontend code to /opt
+      copy:
+        src: "{{ playbook_dir }}/../frontend/"
+        dest: /opt/nuagefernandez/frontend/
+        owner: nuage
+        group: www-data
+        mode: "0750"
+
+    - name: Install systemd service (gunicorn)
+      copy:
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        content: |
+          [Unit]
+          Description={{ project_name }} (gunicorn)
+          After=network.target
+
+          [Service]
+          User={{ app_user }}
+          Group={{ app_group }}
+          WorkingDirectory={{project_root_backend_prod}}
+          ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
+          Environment=PYTHONUNBUFFERED=1
+          Restart=always
+          UMask=0007
+
+          # Hardening
+          NoNewPrivileges=yes
+          PrivateTmp=yes
+          ProtectSystem=full
+          ProtectHome=true
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - daemon-reload
+        - restart app
+
+    - name: Ensure socket directory ownership
+      file:
+        path: "{{ project_root }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0775"
+
+    - name: Nginx site (basic HTTP)
+      copy:
+        dest: "/etc/nginx/sites-available/{{ service_name }}"
+        content: |
+          server {
+              listen 80;
+              server_name _;
+
+              access_log {{ project_root }}/logs/nginx_access.log;
+              error_log  {{ project_root }}/logs/nginx_error.log;
+
+              # Statiques Django collectés
+              location /static/ {
+                  alias {{ backend_dir }}/static/;
+              }
+
+              location / {
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_pass http://unix:{{ gunicorn_socket }};
+              }
+          }
+      notify: reload nginx
+
+    - name: Enable nginx site
+      file:
+        src: "/etc/nginx/sites-available/{{ service_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ service_name }}"
+        state: link
+        force: yes
+      notify: reload nginx
+
+    - name: Disable default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    - name: Ensure nginx enabled
+      systemd:
+        name: nginx
+        enabled: yes
+
+  handlers:
+    - name: daemon-reload
+      systemd:
+        daemon_reload: yes
+
+    - name: restart app
+      systemd:
+        name: "{{ service_name }}"
+        state: restarted
+        enabled: yes
+
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded

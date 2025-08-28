@@ -1,0 +1,15 @@
+[Unit]
+Description={{ project_name }} (gunicorn)
+After=network.target
+
+[Service]
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ backend_dest }}
+ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

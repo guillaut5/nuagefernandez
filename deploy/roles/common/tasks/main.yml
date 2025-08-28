@@ -1,0 +1,10 @@
+- name: Ensure base packages
+  apt:
+    name:
+      - git
+      - python3
+      - python3-venv
+      - python3-pip
+      - nginx
+    state: present
+    update_cache: yes
