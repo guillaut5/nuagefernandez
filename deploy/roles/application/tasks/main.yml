@@ -1,24 +1,3 @@
-- name: Define project_name
-  set_fact:
-    project_name: nuagefernandez
-
-- name: Define variables
-  set_fact:
-    project_root: "/opt/{{ project_name }}"
-    backend_src: "{{ (playbook_dir + '/../backend') | realpath }}"
-    frontend_src: "{{ (playbook_dir + '/../frontend') | realpath }}"
-    backend_dest: "{{ project_root }}/backend"
-    frontend_dest: "{{ project_root }}/frontend"
-    venv_dir: "{{ project_root }}/venv"
-    app_user: "nuage"
-    app_group: "nuage"
-    web_group: "www-data"
-    service_name: "nuage"
-    django_settings_module: "nuagefernandez.settings"
-    wsgi_module: "nuagefernandez.wsgi:application"
-    gunicorn_workers: 3
-    gunicorn_socket: "{{ project_root }}/gunicorn.sock"
-    frontend_build_cmd: "npm run build"
 
 # --- Users & directories ---
 - name: Ensure app group exists
