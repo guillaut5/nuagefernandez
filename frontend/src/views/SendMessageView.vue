@@ -130,7 +130,7 @@ async function handleSubmit() {
     if (location.value.lat != null) form.append('latitude', String(location.value.lat))
     if (location.value.lng != null) form.append('longitude', String(location.value.lng))
 
-    console.log([...form.entries()])
+    console.log(form)
 
     await store.sendMessage(form)
     // reset léger après envoi
