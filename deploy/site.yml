@@ -173,6 +173,21 @@
         mode: "0770"
         recurse: yes
 
+    - name: Deploy backend code to /opt
+      copy:
+        src: "{{ playbook_dir }}/../backend/"
+        dest: /opt/nuagefernandez/backend/
+        owner: nuage
+        group: www-data
+        mode: "0750"
+
+    - name: Deploy frontend code to /opt
+      copy:
+        src: "{{ playbook_dir }}/../frontend/"
+        dest: /opt/nuagefernandez/frontend/
+        owner: nuage
+        group: www-data
+        mode: "0750"
 
     - name: Install systemd service (gunicorn)
       copy:
