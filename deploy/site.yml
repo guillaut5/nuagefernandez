@@ -163,6 +163,17 @@
       environment:
         DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
+
+    - name: Ensure /opt/nuagefernandez belongs to nuage:www-data
+      file:
+        path: /opt/nuagefernandez
+        state: directory
+        owner: nuage
+        group: www-data
+        mode: "0770"
+        recurse: yes
+
+
     - name: Install systemd service (gunicorn)
       copy:
         dest: "/etc/systemd/system/{{ service_name }}.service"
