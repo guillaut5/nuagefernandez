@@ -38,21 +38,34 @@
         update_cache: yes
         state: present
 
+
+    - name: Check current node version (if installed)
+      command: node -v
+      register: node_version
+      ignore_errors: true
+      changed_when: false
+
+
     - name: Remove Debian nodejs/npm
       apt:
         name: [nodejs, npm]
         state: absent
         purge: true
         autoremove: true
+      when: node_version.rc != 0 or (node_version.stdout is defined and node_version.stdout is version('22.0.0', '<'))
+
 
     - name: Download NodeSource 22 setup script
       get_url:
         url: https://deb.nodesource.com/setup_22.x
         dest: /tmp/nodesource_setup.sh
         mode: '0755'
+      when: node_version.rc != 0 or (node_version.stdout is defined and node_version.stdout is version('22.0.0', '<'))
+
 
     - name: Run NodeSource setup script
       command: /bin/bash /tmp/nodesource_setup.sh
+      when: node_version.rc != 0 or (node_version.stdout is defined and node_version.stdout is version('22.0.0', '<'))
 
     - name: Install Node.js 22
       apt:
