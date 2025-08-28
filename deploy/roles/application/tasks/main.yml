@@ -1,6 +1,9 @@
-- name: Define variables
+- name: Define project_name
   set_fact:
     project_name: nuagefernandez
+
+- name: Define variables
+  set_fact:
     project_root: "/opt/{{ project_name }}"
     backend_src: "{{ (playbook_dir + '/../backend') | realpath }}"
     frontend_src: "{{ (playbook_dir + '/../frontend') | realpath }}"
