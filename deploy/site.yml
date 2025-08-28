@@ -4,7 +4,7 @@
     project_name: nuagefernandez
     project_root: "/opt/{{ project_name }}"
     backend_dir: "{{ playbook_dir }}/../backend"
-    frontend_dir: "{{ playbook_dir }}/../front_end"
+    frontend_dir: "{{ playbook_dir }}/../frontend"
     venv_dir: "{{ project_root }}/venv"
 
     # Process/app
