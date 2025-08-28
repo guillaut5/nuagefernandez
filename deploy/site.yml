@@ -3,8 +3,8 @@
   vars:
     project_name: nuagefernandez
     project_root: "/opt/{{ project_name }}"
-    backend_dir: "{{ playbook_dir }}/../backend"
-    frontend_dir: "{{ playbook_dir }}/../frontend"
+    backend_dir: "{{ (playbook_dir + '/../backend') | realpath }}"
+    frontend_dir: "{{ (playbook_dir + '/../frontend') | realpath }}"
     venv_dir: "{{ project_root }}/venv"
 
     # Process/app
@@ -175,9 +175,10 @@
           User={{ app_user }}
           Group={{ app_group }}
           WorkingDirectory={{ backend_dir }}
-          ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --umask 007 --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
+          ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
           Environment=PYTHONUNBUFFERED=1
           Restart=always
+          UMask=0007
 
           # Hardening
           NoNewPrivileges=yes
