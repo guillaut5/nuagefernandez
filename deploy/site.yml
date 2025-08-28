@@ -3,6 +3,7 @@
   vars:
     project_name: nuagefernandez
     project_root: "/opt/{{ project_name }}"
+    project_root_backend_prod : "/opt/{{ project_name }}/backend"
     backend_dir: "{{ (playbook_dir + '/../backend') | realpath }}"
     frontend_dir: "{{ (playbook_dir + '/../frontend') | realpath }}"
     venv_dir: "{{ project_root }}/venv"
@@ -15,7 +16,7 @@
 
     # Django
     django_settings_module: "nuagefernandez.settings"
-    wsgi_module: "config.wsgi:application"
+    wsgi_module: "nuagefernandez.wsgi:application"
     gunicorn_workers: 3
     gunicorn_socket: "{{ project_root }}/gunicorn.sock"
 
@@ -200,7 +201,7 @@
           [Service]
           User={{ app_user }}
           Group={{ app_group }}
-          WorkingDirectory={{ backend_dir }}
+          WorkingDirectory={{project_root_backend_prod}}
           ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
           Environment=PYTHONUNBUFFERED=1
           Restart=always
