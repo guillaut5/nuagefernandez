@@ -170,7 +170,7 @@ async function handleSubmit() {
         <label class="block text-sm font-medium mb-1">À un groupe</label>
         <select v-model="group" class="form-select w-full">
           <option value="">Aucun</option>
-          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.groupname }}</option>
         </select>
       </div>
     </div>

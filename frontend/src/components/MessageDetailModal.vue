@@ -35,9 +35,7 @@ async function markRead() {
     @click.self="emit('close')"
   >
     <!-- Modal card -->
-    <div
-      class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-6 animate-fade"
-    >
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-6 animate-fade">
       <div class="flex justify-between items-center">
         <h2 class="text-xl font-semibold">Détail du message</h2>
         <button @click="emit('close')" class="text-gray-500 hover:text-gray-800">
@@ -47,8 +45,8 @@ async function markRead() {
 
       <div v-if="status">
         <p class="text-sm text-gray-500 mb-2">
-          De <span class="font-medium">{{ status.message.sender_username }}</span>
-          • {{ new Date(status.message.timestamp).toLocaleString() }}
+          De <span class="font-medium">{{ status.message.sender.username }}</span> •
+          {{ new Date(status.message.timestamp).toLocaleString() }}
         </p>
 
         <p class="whitespace-pre-wrap break-words mb-4">{{ status.message.text }}</p>
@@ -66,9 +64,7 @@ async function markRead() {
       </div>
 
       <div class="flex justify-end gap-4">
-        <button @click="emit('close')" class="btn-primary bg-gray-200 text-gray-800">
-          Fermer
-        </button>
+        <button @click="emit('close')" class="btn-primary bg-gray-200 text-gray-800">Fermer</button>
         <button
           v-if="status && !status.is_read"
           @click="markRead"
