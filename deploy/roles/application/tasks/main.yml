@@ -1,48 +1,136 @@
-- name: Check current node version (if installed)
-  command: node -v
-  register: node_version
-  ignore_errors: true
-  changed_when: false
+- name: Define variables
+  set_fact:
+    project_name: nuagefernandez
+    project_root: "/opt/{{ project_name }}"
+    backend_src: "{{ (playbook_dir + '/../backend') | realpath }}"
+    frontend_src: "{{ (playbook_dir + '/../frontend') | realpath }}"
+    backend_dest: "{{ project_root }}/backend"
+    frontend_dest: "{{ project_root }}/frontend"
+    venv_dir: "{{ project_root }}/venv"
+    app_user: "nuage"
+    app_group: "nuage"
+    web_group: "www-data"
+    service_name: "nuage"
+    django_settings_module: "nuagefernandez.settings"
+    wsgi_module: "nuagefernandez.wsgi:application"
+    gunicorn_workers: 3
+    gunicorn_socket: "{{ project_root }}/gunicorn.sock"
+    frontend_build_cmd: "npm run build"
 
-- set_fact:
-    node_version_clean: "{{ node_version.stdout | regex_replace('^v', '') }}"
-  when: node_version.rc == 0
-
-- name: Remove Debian nodejs/npm
-  apt:
-    name: [nodejs, npm]
-    state: absent
-    purge: true
-    autoremove: true
-  when: node_version.rc != 0 or (node_version_clean is defined and node_version_clean is version('22.0.0', '<'))
-
-- name: Download NodeSource 22 setup script
-  get_url:
-    url: https://deb.nodesource.com/setup_22.x
-    dest: /tmp/nodesource_setup.sh
-    mode: '0755'
-  when: node_version.rc != 0 or (node_version_clean is defined and node_version_clean is version('22.0.0', '<'))
-
-- name: Run NodeSource setup script
-  command: /bin/bash /tmp/nodesource_setup.sh
-  when: node_version.rc != 0 or (node_version_clean is defined and node_version_clean is version('22.0.0', '<'))
-
-- name: Install Node.js 22
-  apt:
-    name: nodejs
+# --- Users & directories ---
+- name: Ensure app group exists
+  group:
+    name: "{{ app_group }}"
     state: present
-    update_cache: yes
 
-- name: Debug Node/NPM versions
-  block:
-    - command: node -v
-      register: node_ver
-      changed_when: false
-    - debug:
-        msg: "Node version: {{ node_ver.stdout }}"
+- name: Ensure app user exists
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    home: "{{ project_root }}"
+    shell: /usr/sbin/nologin
+    create_home: yes
+    system: yes
 
-    - command: npm -v
-      register: npm_ver
-      changed_when: false
-    - debug:
-        msg: "NPM version: {{ npm_ver.stdout }}"
+- name: Add nginx user to app group (for socket access)
+  user:
+    name: "{{ web_group }}"
+    groups: "{{ app_group }}"
+    append: yes
+
+- name: Create project directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0770"
+  loop:
+    - "{{ project_root }}"
+    - "{{ project_root }}/logs"
+
+# --- Backend ---
+- name: Create Python venv
+  command: "python3 -m venv {{ venv_dir }}"
+  args:
+    creates: "{{ venv_dir }}/bin/activate"
+
+- name: Deploy backend code
+  copy:
+    src: "{{ backend_src }}/"
+    dest: "{{ backend_dest }}/"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Install backend requirements
+  pip:
+    requirements: "{{ backend_dest }}/requirements.txt"
+    virtualenv: "{{ venv_dir }}"
+
+- name: Collect static (Django)
+  command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
+  args:
+    chdir: "{{ backend_dest }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+
+- name: Run migrations (Django)
+  command: "{{ venv_dir }}/bin/python manage.py migrate --noinput"
+  args:
+    chdir: "{{ backend_dest }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+
+# --- Frontend ---
+- name: Deploy frontend code
+  copy:
+    src: "{{ frontend_src }}/"
+    dest: "{{ frontend_dest }}/"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Install frontend dependencies
+  npm:
+    path: "{{ frontend_dest }}"
+    production: false
+
+- name: Build frontend
+  command: "{{ frontend_build_cmd }}"
+  args:
+    chdir: "{{ frontend_dest }}"
+
+# --- Services ---
+- name: Install systemd service (gunicorn)
+  template:
+    src: gunicorn.service.j2
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+  notify:
+    - daemon-reload
+    - restart app
+
+- name: Nginx site
+  template:
+    src: nginx.conf.j2
+    dest: "/etc/nginx/sites-available/{{ service_name }}"
+  notify: reload nginx
+
+- name: Enable nginx site
+  file:
+    src: "/etc/nginx/sites-available/{{ service_name }}"
+    dest: "/etc/nginx/sites-enabled/{{ service_name }}"
+    state: link
+    force: yes
+  notify: reload nginx
+
+- name: Disable default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Ensure nginx enabled
+  systemd:
+    name: nginx
+    enabled: yes
