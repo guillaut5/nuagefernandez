@@ -44,18 +44,6 @@ const activeThread = computed(() =>
   activeConversationId.value ? store.threads[activeConversationId.value] : null,
 )
 
-async function selectConversation(id: string) {
-  await store.openConversation(id)
-  //    conversations.value.find((c) => c.id === activeConversationId.value) ||
-  //   buildDraftConversationFromId(activeConversationId.value, ug.users, ug.groups)
-}
-/*const    = computed(
-  () =>
-    !!activeConversation.value &&
-    (activeConversation.value.isDraft || activeConversation.value.messages.length === 0),
-)
-    */
-
 // ---- composer
 const sending = ref(false)
 const canSend = computed(() => {
