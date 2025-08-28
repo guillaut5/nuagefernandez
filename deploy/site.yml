@@ -38,38 +38,30 @@
         update_cache: yes
         state: present
 
-    - name: Ensure backports repo for Debian 12 (bookworm)
-      copy:
-        dest: /etc/apt/sources.list.d/backports.list
-        content: "deb http://deb.debian.org/debian bookworm-backports main"
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Update apt cache
+    - name: Remove Debian nodejs/npm
       apt:
-        update_cache: yes
+        name: [nodejs, npm]
+        state: absent
+        purge: true
+        autoremove: true
 
-    # Optionnel mais conseillé : pinner uniquement nodejs/npm vers backports
-    - name: Pin nodejs/npm to bookworm-backports
-      copy:
-        dest: /etc/apt/preferences.d/nodejs-backports.pref
-        content: |
-          Package: nodejs npm
-          Pin: release n=bookworm-backports
-          Pin-Priority: 990
-        owner: root
-        group: root
-        mode: "0644"
+    - name: Add NodeSource 22 repo
+      shell: curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+      args: { warn: false }
 
-    - name: Install Node.js 22 (and npm) from backports
+    - name: Install Node.js 22
       apt:
-        name:
-          - nodejs
-          - npm
+        name: nodejs
         state: present
-        default_release: bookworm-backports
         update_cache: yes
+
+    - name: Check node
+      command: node -v
+      register: node_ver
+      changed_when: false
+
+    - debug: msg="Node version -> {{ node_ver.stdout }}"
+
 
     - name: Verify Node/NPM versions
       command: node -v
