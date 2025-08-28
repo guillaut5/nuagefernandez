@@ -14,7 +14,7 @@
     service_name: "nuage"
 
     # Django
-    django_settings_module: "config.settings"
+    django_settings_module: "nuagefernandez.settings"
     wsgi_module: "config.wsgi:application"
     gunicorn_workers: 3
     gunicorn_socket: "{{ project_root }}/gunicorn.sock"
