@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(
     operation_id="sse_messages",
-    tags=["actions"],
+    tags=["liste"],
     summary="Flux SSE des messages",
     description=(
         "Établit une connexion SSE (Server-Sent Events) protégée par JWT en cookie. "
@@ -410,6 +410,7 @@ class MessageThreadView(APIView):
     @extend_schema(
         operation_id="messages_thread",
         tags=["liste"],
+        summary="Messages d'un conversation",
         description=(
             "Retourne les messages d'une conversation.\n"
             "- 1-to-1 : tous les messages entre l’utilisateur courant et `user`.\n"
