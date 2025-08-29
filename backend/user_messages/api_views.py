@@ -21,6 +21,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from ipware import get_client_ip
 
 # drf-spectacular (OpenAPI)
 from drf_spectacular.utils import (
@@ -590,13 +591,6 @@ def _payload_for_user(msg, conv_id):
     }
 
 
-def get_client_ip(request):
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0]  # la première IP est celle du client
-    return request.META.get("REMOTE_ADDR")
-
-
 @extend_schema(tags=["actions"])
 class SendMessageAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -622,7 +616,12 @@ class SendMessageAPIView(APIView):
 
         msg.sender = request.user
 
-        msg.ip_address = get_client_ip(request)
+        ip, is_routable = get_client_ip(request)
+        if ip is None:
+            client_ip = "0.0.0.0"
+        else:
+            client_ip = ip
+        msg.ip_address = client_ip
         msg.user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
 
         msg.save()
