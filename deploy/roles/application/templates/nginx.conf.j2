@@ -1,24 +1,4 @@
 server {
-    listen 80;
-    server_name _;
-
-    access_log {{ project_root }}/logs/nginx_access.log;
-    error_log  {{ project_root }}/logs/nginx_error.log;
-
-    location /static/ {
-        alias {{ backend_dest }}/static/;
-    }
-
-    location / {
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_pass http://unix:{{ gunicorn_socket }};
-    }
-}
-/*
-server {
   #listen 443 ssl;
   #server_name preprod.monsite.com;
  listen 80;
@@ -93,5 +73,4 @@ server {
   # (Optionnel) Gzip basique pour JS/CSS/JSON (si pas déjà global)
   # gzip on;
   # gzip_types text/plain text/css application/javascript application/json image/svg+xml;
-}
 }
