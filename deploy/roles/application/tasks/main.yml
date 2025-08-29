@@ -151,3 +151,15 @@
   systemd:
     name: nginx
     enabled: yes
+
+
+- name: Ensure nginx restarted
+  systemd:
+    name: nginx
+    restarted: yes
+
+    
+- name: Ensure nuage restarted
+  systemd:
+    name: nuage
+    restarted: yes
