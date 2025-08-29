@@ -11,6 +11,7 @@ web_group: "www-data"
 service_name: "nuage"
 django_settings_module: "nuagefernandez.settings"
 wsgi_module: "nuagefernandez.wsgi:application"
-gunicorn_workers: 3
+gunicorn_workers: 1
+gunicorn_threads: 4
 gunicorn_socket: "{{ project_root }}/gunicorn.sock"
 frontend_build_cmd: "npm run build"

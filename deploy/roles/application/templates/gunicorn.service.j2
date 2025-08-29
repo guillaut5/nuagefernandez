@@ -5,8 +5,9 @@ After=network.target
 [Service]
 User={{ app_user }}
 Group={{ app_group }}
+Environment=PYTHONPATH={{ backend_dest }}
 WorkingDirectory={{ backend_dest }}
-ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
+ExecStart={{ venv_dir }}/bin/gunicorn --workers {{ gunicorn_workers }} --threads {{ unicorn_threads }} --bind unix:{{ gunicorn_socket }} {{ wsgi_module }}
 Environment=PYTHONUNBUFFERED=1
 Restart=always
 UMask=0007

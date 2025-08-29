@@ -17,3 +17,81 @@ server {
         proxy_pass http://unix:{{ gunicorn_socket }};
     }
 }
+/*
+server {
+  #listen 443 ssl;
+  #server_name preprod.monsite.com;
+ listen 80;
+  server_name _;
+
+  # SPA buildée par Vite
+  root {{ frontend_dest }}/dist;
+  index index.html;
+
+  # Si la SPA est à la racine :
+  location / {
+    try_files $uri /index.html;
+  }
+
+  # Si la SPA est sous /test/ :
+  # location /test/ {
+  #   alias /var/www/app/dist/;
+  #   try_files $uri /test/index.html;
+  # }
+
+  # ---- API Django (Gunicorn) ----
+  location /api/ {
+    proxy_pass http://127.0.0.1:8000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Real-IP $remote_addr;
+
+    # Téléverser des fichiers (ajuste au besoin)
+    client_max_body_size 25M;
+
+    # Évite que Nginx mette en cache l'API
+    add_header Cache-Control "no-store" always;
+  }
+
+  # ---- SSE : streaming sans buffering ----
+  # (plus spécifique que /api/, donc prioritaire)
+  location /api/messages/sse/ {
+    proxy_pass http://127.0.0.1:8000/api/messages/sse/;
+    proxy_http_version 1.1;
+    proxy_set_header Connection '';
+
+    # Pas de buffering / pas de cache
+    proxy_buffering off;
+    proxy_cache off;
+    chunked_transfer_encoding on;
+    add_header Cache-Control "no-cache" always;
+    add_header X-Accel-Buffering "no" always;
+
+    # Pour les connexions longues
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+  }
+
+  # ---- Static Django (admin, collectstatic) ----
+  # (Servis DIRECTEMENT par Nginx, pas via Gunicorn)
+  location /static/ {
+    alias {{ backend_dest }}/staticfiles/;  # ex: /srv/app/static/
+    try_files $uri =404;
+    access_log off;
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+  }
+
+  # ---- Media Django (uploads) ----
+  location /media/ {
+    alias {{ backend_dest }}/uploads/;   # ex: /srv/app/media/
+    try_files $uri =404;
+    expires 7d;
+    add_header Cache-Control "public, max-age=604800" always;
+  }
+
+  # (Optionnel) Gzip basique pour JS/CSS/JSON (si pas déjà global)
+  # gzip on;
+  # gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+}
+}
