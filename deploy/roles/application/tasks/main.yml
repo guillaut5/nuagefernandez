@@ -37,13 +37,23 @@
   args:
     creates: "{{ venv_dir }}/bin/activate"
 
-- name: Deploy backend code
-  copy:
+- name: Synchronize backend code
+  synchronize:
     src: "{{ backend_src }}/"
     dest: "{{ backend_dest }}/"
+    delete: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=node_modules"
+      - "--exclude=__pycache__"
+
+- name: Fix permissions on backend
+  file:
+    path: "{{ backend_dest }}"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0750"
+    recurse: yes
 
 - name: Install backend requirements
   pip:
@@ -64,14 +74,22 @@
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
-# --- Frontend ---
-- name: Deploy frontend code
-  copy:
+
+- name: Synchronize frontend code
+  synchronize:
     src: "{{ frontend_src }}/"
     dest: "{{ frontend_dest }}/"
+    delete: yes
+    rsync_opts:
+      - "--exclude=node_modules"
+
+- name: Fix permissions on frontend
+  file:
+    path: "{{ frontend_dest }}"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0750"
+    recurse: yes
 
 - name: Install frontend dependencies
   npm:
