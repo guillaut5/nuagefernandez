@@ -59,21 +59,26 @@
   pip:
     requirements: "{{ backend_dest }}/requirements.txt"
     virtualenv: "{{ venv_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
 
 - name: Collect static (Django)
   command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
   args:
     chdir: "{{ backend_dest }}"
+  become: yes
+  become_user: "{{ app_user }}"  
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
 - name: Run migrations (Django)
   command: "{{ venv_dir }}/bin/python manage.py migrate --noinput"
+  become: yes
+  become_user: "{{ app_user }}"
   args:
     chdir: "{{ backend_dest }}"
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
-
 
 - name: Synchronize frontend code
   synchronize:

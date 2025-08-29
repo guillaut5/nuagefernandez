@@ -20,8 +20,8 @@ server {
   # }
 
   # ---- API Django (Gunicorn) ----
-  location /api/ {
-    proxy_pass http://127.0.0.1:8000/;
+  location  ^/(api|admin)/ {
+    proxy_pass http://unix:{{project_root}}/gunicorn.sock;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Real-IP $remote_addr;
@@ -32,11 +32,12 @@ server {
     # Évite que Nginx mette en cache l'API
     add_header Cache-Control "no-store" always;
   }
+  
 
   # ---- SSE : streaming sans buffering ----
   # (plus spécifique que /api/, donc prioritaire)
   location /api/messages/sse/ {
-    proxy_pass http://127.0.0.1:8000/api/messages/sse/;
+    proxy_pass http://unix:{{project_root}}/gunicorn.sock;
     proxy_http_version 1.1;
     proxy_set_header Connection '';
 
