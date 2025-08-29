@@ -590,6 +590,13 @@ def _payload_for_user(msg, conv_id):
     }
 
 
+def get_client_ip(request):
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0]  # la première IP est celle du client
+    return request.META.get("REMOTE_ADDR")
+
+
 @extend_schema(tags=["actions"])
 class SendMessageAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -614,7 +621,8 @@ class SendMessageAPIView(APIView):
         # On sauve sans commit si nécessaire (DRF ne gère pas commit=False de base !)
 
         msg.sender = request.user
-        msg.ip_address = request.META.get("REMOTE_ADDR")
+
+        msg.ip_address = get_client_ip(request)
         msg.user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
 
         msg.save()
