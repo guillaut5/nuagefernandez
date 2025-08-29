@@ -653,7 +653,7 @@ class SendMessageAPIView(APIView):
         # Logging pédagogique
         timestamp = now().strftime("%Y-%m-%d %H:%M:%S")
         recipient = msg.recipient.username if msg.recipient else ""
-        group = msg.recipient_group.name if msg.recipient_group else ""
+        group = msg.recipient_group.groupname if msg.recipient_group else ""
         target = recipient or group or "TOUS"
         has_image = "Oui" if msg.image else "Non"
 
