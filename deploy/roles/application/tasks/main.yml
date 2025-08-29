@@ -32,10 +32,6 @@
     - "{{ project_root }}/logs"
 
 # --- Backend ---
-- name: Create Python venv
-  command: "python3 -m venv {{ venv_dir }}"
-  args:
-    creates: "{{ venv_dir }}/bin/activate"
 
 - name: Synchronize backend code
   synchronize:
@@ -54,6 +50,13 @@
     group: "{{ app_group }}"
     mode: "0750"
     recurse: yes
+
+- name: Create Python venv
+  command: "python3 -m venv {{ venv_dir }}"
+  args:
+    creates: "{{ venv_dir }}/bin/activate"
+  become: yes
+  become_user: "{{ app_user }}"
 
 - name: Install backend requirements
   pip:

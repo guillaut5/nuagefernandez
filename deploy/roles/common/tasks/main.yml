@@ -7,5 +7,6 @@
       - python3-pip
       - nginx
       - rsync
+      - acl 
     state: present
     update_cache: yes
