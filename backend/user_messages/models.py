@@ -31,7 +31,7 @@ class Message(models.Model):
     text = models.TextField()
     image = models.ImageField(upload_to="uploads/", null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
-    ip_address = models.GenericIPAddressField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField()
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
