@@ -1,0 +1,8 @@
+---
+- name: Deploy DuckDNS and HTTPS
+  hosts: raspberry
+  become: true
+  vars_files:
+      - ./vars/duckdns.yml
+  roles:
+    - duckdns

@@ -1,0 +1,44 @@
+---
+- name: Ensure curl and certbot are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - certbot
+      - python3-certbot-nginx
+    state: present
+    update_cache: true
+  become: true
+
+- name: Install DuckDNS update script
+  ansible.builtin.template:
+    src: duckdns-update.sh.j2
+    dest: /usr/local/bin/duckdns-update.sh
+    mode: '0755'
+  become: true
+
+- name: Setup cron job for DuckDNS update
+  ansible.builtin.cron:
+    name: "DuckDNS update"
+    job: "/usr/local/bin/duckdns-update.sh"
+    minute: "*/5"
+  become: true
+
+- name: Wait until DuckDNS resolves correctly (max 5 min)
+  ansible.builtin.uri:
+    url: "http://{{ duckdns_domain }}"
+    status_code: 200
+  register: duckdns_check
+  retries: 30
+  delay: 10
+  until: duckdns_check.status == 200
+  when: use_https | default(true)
+
+- name: Obtain HTTPS certificate with Certbot (Nginx plugin)
+  ansible.builtin.command:
+    cmd: >
+      certbot --nginx -d {{ duckdns_domain }}
+              --non-interactive --agree-tos
+              -m admin@{{ duckdns_domain }}
+              --redirect
+  when: use_https | default(true)
+  become: true
