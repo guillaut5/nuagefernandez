@@ -2,17 +2,16 @@
 import { ref, computed, onMounted } from 'vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessages from '@/components/ChatMessages.vue'
+import ChatComposer from '@/components/ChatComposer.vue'
+
 import { useMessages } from '@/store/useMessages'
 import { useAuth } from '@/store/useAuth'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
+
 const ug = useUserGroupStore()
-
-import ChatComposer from '@/components/ChatComposer.vue'
-
 const store = useMessages()
-
-// id utilisateur courant (si tu veux qu'il soit réactif, fais-en un computed sur useAuth().user)
 const auth = useAuth()
+
 const currentUserId = auth.user?.id ?? 0
 
 const location = ref({ lat: null as number | null, lng: null as number | null })
@@ -38,15 +37,31 @@ const activeThread = computed(() =>
   activeConversationId.value ? store.threads[activeConversationId.value] : null,
 )
 
-// ---- composer
 const sending = ref(false)
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-100px)]">
-    <ChatSidebar :active-id="activeConversationId" />
+  <div class="flex h-[calc(100vh-100px)] overflow-hidden">
+    <!-- MOBILE : sidebar en plein écran si pas de conv -->
+    <aside v-if="!activeConversationId" class="md:hidden w-full">
+      <ChatSidebar :active-id="activeConversationId" />
+    </aside>
 
-    <div class="flex flex-col flex-1">
+    <!-- DESKTOP : sidebar fixe, toujours visible -->
+    <aside class="hidden md:flex w-72 border-r bg-white flex-shrink-0">
+      ccc
+      <ChatSidebar :active-id="activeConversationId" />
+    </aside>
+    <!-- ================= CHAT VIEW ================= -->
+    <div v-if="activeThread" class="flex flex-col flex-1">
+      <!-- Header avec bouton retour (mobile only) -->
+      <div class="h-12 flex items-center px-4 border-b bg-white shadow-sm">
+        <button class="md:hidden mr-2 text-gray-600" @click="activeConversationId = null">←</button>
+        <span class="font-medium truncate">
+          {{ activeThread?.label || 'Conversation' }}
+        </span>
+      </div>
+
       <!-- Badge "Nouvelle discussion" -->
       <div
         v-if="activeThread?.messages.length == 0"
@@ -63,15 +78,8 @@ const sending = ref(false)
         </span>
       </div>
 
-      <div
-        class="h-9 flex items-center justify-center text-[16px] font-medium tracking-tight text-neutral-700 dark:text-neutral-200 select-none truncate"
-        title="{{ activeThread?.label }}"
-      >
-        {{ activeThread?.label || 'Conversation' }}
-      </div>
-
+      <!-- Messages -->
       <ChatMessages
-        v-if="activeThread"
         :key="activeThread.id"
         :messages="activeThread.messages"
         :current-user-id="currentUserId"

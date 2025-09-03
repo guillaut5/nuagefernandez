@@ -73,7 +73,7 @@ function startConversationWithGroup(g: { id: number }) {
 </script>
 
 <template>
-  <div class="w-full md:w-1/3 max-w-xs border-r h-full flex flex-col">
+  <div class="w-full md:w-1/3 max-w-xs h-full flex flex-col">
     <!-- Header: recherche + bouton + -->
     <div class="p-3 border-b flex items-center gap-2">
       <input
