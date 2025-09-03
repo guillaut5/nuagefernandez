@@ -4,3 +4,4 @@
     - common
     - nodejs
     - application
+    - fail2ban
