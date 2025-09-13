@@ -8,6 +8,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Clé secrète Django (tu pourras la changer plus tard pour plus de sécurité)
 SECRET_KEY = "django-insecure-nuagefernandez-1234567890"
 
+# Choix de la commande de speaker
+SPEAKER = {
+    "engine": "espeak",
+    "voice": "fr+f3",
+    "speed": "150",
+    "pitch": "70",
+    "fifo_path": "/tmp/speak.fifo",
+}
 # Debug activé pour ton projet local
 DEBUG = True
 
@@ -157,29 +165,31 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Log directory
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
 os.makedirs(LOGS_DIR, exist_ok=True)
-# --- Logging pédagogique pour user_messages ---
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "simple": {
-            "format": "{levelname} {asctime} {message}",
+        "verbose": {
+            "format": "{levelname} {asctime} {name} {message}",
             "style": "{",
         },
     },
     "handlers": {
-        "user_messages_file": {
+        "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": "user_messages.log",  # fichier log au même niveau que manage.py
-            "formatter": "simple",
+            "filename": os.path.join(LOGS_DIR, "django.log"),
+            "formatter": "verbose",
+        },
+        "console": {  # facultatif, pour aussi voir les logs en console
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
     },
-    "loggers": {
-        "user_messages": {
-            "handlers": ["user_messages_file"],
-            "level": "INFO",
-            "propagate": True,
-        },
+    "root": {  # tous les logs par défaut
+        "handlers": ["file", "console"],
+        "level": "INFO",
     },
 }

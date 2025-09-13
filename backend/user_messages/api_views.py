@@ -3,6 +3,9 @@
 # Standard library
 import logging
 import json
+from datetime import datetime
+import os
+import platform
 
 # Third-party / Django
 from asgiref.sync import async_to_sync
@@ -14,6 +17,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
 from django.http import StreamingHttpResponse
+from django.conf import settings
 
 # DRF
 from rest_framework import generics, permissions, status
@@ -660,8 +664,75 @@ class SendMessageAPIView(APIView):
         logger.info(
             f"[{timestamp}] Expéditeur: {msg.sender.username}  Destinataire: {target} | Contenu: {msg.text} | Image: {has_image}"
         )
+        log_message_to_speaker(msg, target)
 
         return Response({"success": True}, status=status.HTTP_201_CREATED)
+
+
+import os
+import platform
+from datetime import datetime
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def log_message_to_speaker(msg, target):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # paramètres du speaker depuis settings.py
+    speaker_params = []
+    for key in ["engine", "voice", "speed", "pitch"]:
+        value = settings.SPEAKER.get(key)
+        if value is not None:
+            speaker_params.append(f"{key}={value}")
+    speaker_str = " ".join(speaker_params)
+
+    # déterminer le contenu du message
+    has_image = getattr(msg, "image", None) is not None
+    has_text = bool(getattr(msg, "text", "").strip())
+
+    if has_image and has_text:
+        spoken_text = f'{msg.sender.username} a envoyé une image et le message "{msg.text}" à {target}'
+    elif has_image:
+        spoken_text = f"{msg.sender.username} a envoyé une image à {target}"
+    elif has_text:
+        spoken_text = f'{msg.sender.username} a envoyé "{msg.text}" à {target}'
+    else:
+        spoken_text = f"{msg.sender.username} a contacté {target}"
+
+    # ligne envoyée
+    line = f"{speaker_str} {spoken_text}\n"
+    fifo_path = settings.SPEAKER.get("fifo_path", "/tmp/speak.fifo")
+    logger.info(line)
+    # Vérifier si la FIFO existe
+    if not os.path.exists(fifo_path):
+        try:
+            if platform.system() != "Windows":
+                os.mkfifo(fifo_path)
+                os.chmod(fifo_path, 0o666)
+                logger.warning(f"[SPEAKER] FIFO manquante recréée : {fifo_path}")
+            else:
+                logger.error(
+                    f"[SPEAKER] Impossible de créer une FIFO sur Windows ({fifo_path})."
+                )
+                return
+        except Exception as e:
+            logger.error(
+                f"[SPEAKER] Erreur lors de la création de la FIFO {fifo_path}: {e}"
+            )
+            return
+
+    # Essayer d'écrire
+    try:
+        with open(fifo_path, "w") as fifo:
+            fifo.write(line)
+
+        logger.info(f"[SPEAKER] Message écrit dans FIFO {fifo_path} : {line.strip()}")
+
+    except Exception as e:
+        logger.error(f"[SPEAKER] Erreur lors de l’écriture dans {fifo_path}: {e}")
 
 
 @extend_schema(tags=["actions"])

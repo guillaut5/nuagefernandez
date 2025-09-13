@@ -12,3 +12,9 @@
   systemd:
     name: nginx
     state: reloaded
+    
+- name: restart speaker
+  systemd:
+    name: speaker
+    state: restarted
+    enabled: yes

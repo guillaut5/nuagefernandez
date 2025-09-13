@@ -91,6 +91,31 @@
     group: "{{ app_user }}"
     mode: "0644"
 
+# --- Speaker prerequisites ---
+- name: Install speaker packages
+  apt:
+    name:
+      - espeak
+      - libttspico-utils
+      - alsa-utils
+    state: present
+    update_cache: yes
+
+- name: Deploy speaker listener script
+  copy:
+    src: "{{ backend_src }}/utils/speaker_listener.py"
+    dest: /usr/local/bin/speaker_listener.py
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install systemd service (speaker)
+  template:
+    src: speaker.service.j2
+    dest: /etc/systemd/system/speaker.service
+  notify:
+    - daemon-reload
+    - restart speaker
 
 - name: Synchronize frontend code
   synchronize:
@@ -117,6 +142,10 @@
   command: "{{ frontend_build_cmd }}"
   args:
     chdir: "{{ frontend_dest }}"
+
+
+
+
 
 # --- Services ---
 - name: Install systemd service (gunicorn)
