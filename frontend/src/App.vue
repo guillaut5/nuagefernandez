@@ -24,11 +24,11 @@ function handleLogout() {
       <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
         <div class="flex items-center gap-3">
           <img src="@/assets/logo.png" alt="Logo" class="h-8 w-8 rounded" />
-          <span class="font-semibold text-lg">NuagePrivé</span>
+          <!-- <span class="font-semibold text-xs">NudagePrivé</span>-->
         </div>
 
         <div class="flex items-center gap-6">
-          <ul class="flex items-center gap-6 text-sm font-medium">
+          <ul class="flex items-center gap-2 text-xs font-medium">
             <li><RouterLink to="/chat" class="hover:text-blue-600">Chat</RouterLink></li>
             <li><RouterLink to="/profile" class="hover:text-blue-600">Profil</RouterLink></li>
           </ul>
@@ -44,10 +44,15 @@ function handleLogout() {
               </div>
               <button
                 @click="handleLogout"
-                class="text-sm font-medium text-red-600 hover:text-red-800"
+                class="text-xs font-medium text-red-600 hover:text-red-800"
               >
-                <span class="inline-flex items-center gap-1">
-                  <LogOut class="w-4 h-4" /> Déconnexion
+                <span class="inline-flex items-center gap-1 group relative">
+                  <LogOut class="w-4 h-4 md:w-6 md:h-6" />
+                  <span
+                    class="absolute left-full ml-2 px-2 py-1 text-xs text-white bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition"
+                  >
+                    Déconnexion
+                  </span>
                 </span>
               </button>
             </template>
@@ -55,9 +60,9 @@ function handleLogout() {
             <template v-else>
               <RouterLink
                 to="/login"
-                class="text-sm font-medium hover:text-blue-600 inline-flex items-center gap-1"
+                class="text-xs font-medium hover:text-blue-600 inline-flex items-center gap-1"
               >
-                <LogIn class="w-4 h-4" /> Se connecter
+                <LogIn class="w-4 h-4 md:w-6 md:h-6 text-xs md:text-base" /> Connection
               </RouterLink>
             </template>
           </div>
@@ -65,7 +70,7 @@ function handleLogout() {
       </nav>
     </header>
 
-    <main class="container mx-auto px-4 py-8">
+    <main class="container mx-auto px-2 py-2 md:px-4 md:py-8">
       <RouterView />
     </main>
   </div>

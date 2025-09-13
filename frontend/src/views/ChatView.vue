@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessages from '@/components/ChatMessages.vue'
 import ChatComposer from '@/components/ChatComposer.vue'
+import { ArrowLeft } from 'lucide-vue-next'
 
 import { useMessages } from '@/store/useMessages'
 import { useAuth } from '@/store/useAuth'
@@ -56,7 +57,9 @@ const sending = ref(false)
     <div v-if="activeThread" class="flex flex-col flex-1">
       <!-- Header avec bouton retour (mobile only) -->
       <div class="h-12 flex items-center px-4 border-b bg-white shadow-sm">
-        <button class="md:hidden mr-2 text-gray-600" @click="activeConversationId = null">←</button>
+        <button class="md:hidden mr-2 text-gray-600" @click="activeConversationId = null">
+          <ArrowLeft class="w-6 h-6" />
+        </button>
         <span class="font-medium truncate">
           {{ activeThread?.label || 'Conversation' }}
         </span>
