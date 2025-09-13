@@ -27,13 +27,17 @@ class GroupSummarySerializer(serializers.ModelSerializer):
 
 class MessageSendSerializer(serializers.ModelSerializer):
     sender = UserSummarySerializer(read_only=True)
-    # -> Rendez ces champs "writable" via leur PK
     recipient = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
     recipient_group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(), required=False, allow_null=True
     )
+
+    text = serializers.CharField(required=False, allow_blank=True)
+    image = serializers.ImageField(required=False, allow_null=True)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
 
     class Meta:
         model = Message
@@ -49,12 +53,56 @@ class MessageSendSerializer(serializers.ModelSerializer):
             "recipient_group",
         ]
 
+    def validate(self, data):
+        if not data.get("text") and not data.get("image"):
+            raise serializers.ValidationError(
+                "Un message doit contenir du texte ou une image."
+            )
+        return data
+
     def create(self, validated_data):
         request = self.context["request"]
         validated_data["sender"] = request.user
         validated_data["ip_address"] = request.META.get("REMOTE_ADDR")
         validated_data["user_agent"] = request.META.get("HTTP_USER_AGENT", "Unknown")
         return super().create(validated_data)
+
+
+# class MessageSendSerializer(serializers.ModelSerializer):
+#    sender = UserSummarySerializer(read_only=True)
+#    recipient = serializers.PrimaryKeyRelatedField(
+#        queryset=User.objects.all(), required=False, allow_null=True
+#    )
+#    recipient_group = serializers.PrimaryKeyRelatedField(
+#        queryset=Group.objects.all(), required=False, allow_null=True
+#    )
+#
+#    text = serializers.CharField(required=False, allow_blank=True)
+#    image = serializers.ImageField(required=False, allow_null=True)
+#    latitude = serializers.FloatField(required=False, allow_null=True)
+#    longitude = serializers.FloatField(required=False, allow_null=True)
+#
+#    class Meta:
+#        model = Message
+#        fields = [
+#            "id",
+#            "text",
+#            "image",
+#            "timestamp",
+#            "latitude",
+#            "longitude",
+#            "sender",
+#            "recipient",
+#            "recipient_group",
+#        ]
+#
+#    def validate(self, data):
+#        if not data.get("text") and not data.get("image"):
+#            raise serializers.ValidationError(
+#                "Un message doit contenir du texte ou une image."
+#            )
+#        return data
+#
 
 
 class MessageSerializer(serializers.ModelSerializer):

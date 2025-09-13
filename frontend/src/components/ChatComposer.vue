@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, onUnmounted } from 'vue'
+import { ref, nextTick, onUnmounted, onMounted } from 'vue'
 import { Camera, Send } from 'lucide-vue-next'
 
 const props = defineProps<{ sending: boolean }>()
@@ -91,14 +91,24 @@ async function capturePhoto() {
   closeCamera()
 }
 
+onMounted(() => {
+  // si on perd le focus, on force le close camera
+  window.addEventListener('blur', closeCamera)
+})
 onUnmounted(() => {
+  window.addEventListener('blur', closeCamera)
+
   closeCamera()
 })
 
 // envoyer
 function sendMessage() {
-  if (!replyText.value.trim() && !imageFile.value) return
-  emit('send', { text: replyText.value.trim(), file: imageFile.value })
+  const text = replyText.value.trim()
+  const file = imageFile.value
+
+  if (!text && !file) return // rien du tout
+
+  emit('send', { text, file })
   replyText.value = ''
   clearImage()
 }
