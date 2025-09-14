@@ -33,6 +33,16 @@
   until: duckdns_check.status == 200
   when: use_https | default(true)
 
+
+- name: Force Nginx server_name to DuckDNS domain
+  ansible.builtin.lineinfile:
+    path: /etc/nginx/sites-enabled/nuage
+    regexp: '^\s*server_name\s+'
+    line: "    server_name {{ duckdns_domain }};"
+    state: present
+  notify: Reload Nginx
+  when: use_https | default(true)
+
 - name: Obtain HTTPS certificate with Certbot (Nginx plugin)
   ansible.builtin.command:
     cmd: >
