@@ -725,11 +725,11 @@ def log_message_to_speaker(msg, target):
     has_text = bool(getattr(msg, "text", "").strip())
 
     if has_image and has_text:
-        spoken_text = f'{msg.sender.username} a envoyé une image et le message "{msg.text}" à {target}'
+        spoken_text = f'{msg.sender.username} envoie "{msg.text}" à {target}'
     elif has_image:
-        spoken_text = f"{msg.sender.username} a envoyé une image à {target}"
+        spoken_text = f"{msg.sender.username} envoie un image à {target}"
     elif has_text:
-        spoken_text = f'{msg.sender.username} a envoyé "{msg.text}" à {target}'
+        spoken_text = f'{msg.sender.username} envoie "{msg.text}" à {target}'
     else:
         spoken_text = f"{msg.sender.username} a contacté {target}"
 

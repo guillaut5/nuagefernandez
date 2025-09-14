@@ -10,8 +10,10 @@ SECRET_KEY = "django-insecure-nuagefernandez-1234567890"
 
 # Choix de la commande de speaker
 SPEAKER = {
-    "engine": "espeak",
-    "voice": "fr+f3",
+    # "engine": "espeak",
+    # "voice": "fr+f3",
+    "engine": "pico2wave",
+    "voice": "fr-FR",
     "speed": "150",
     "pitch": "70",
     "fifo_path": "/tmp/speak.fifo",

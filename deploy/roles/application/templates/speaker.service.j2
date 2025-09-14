@@ -7,8 +7,8 @@ Type=simple
 ExecStartPre=/usr/bin/amixer sset 'PCM' 95%
 ExecStart={{ venv_dir }}/bin/python /usr/local/bin/speaker_listener.py
 Restart=always
-User={{ app_user }}
-Group={{ app_group }}
+User=root
+Group=root
 
 [Install]
 WantedBy=multi-user.target
