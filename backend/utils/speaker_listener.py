@@ -119,26 +119,28 @@ def main():
         os.mkfifo(fifo_path)
         os.chmod(fifo_path, 0o666)
 
-    # Petit message de démarrage
+    # Message de démarrage
     speak_espeak("Bonjour bande de petit morveux, je suis pret", voice="fr+f3")
 
-    with open(fifo_path, "r") as fifo:
-        for line in fifo:
-            params, message = parse_line(line.strip())
-            if not message:
-                continue
+    # Boucle de réouverture: attend un writer, lit jusqu'à EOF, puis recommence
+    while True:
+        with open(fifo_path, "r") as fifo:
+            for line in fifo:  # lit ligne par ligne jusqu'à EOF
+                params, message = parse_line(line.strip())
+                if not message:
+                    continue
 
-            engine = params.get("engine", "espeak")
-            if engine == "pico2wave":
-                speak_pico(message, voice=params.get("voice", "fr-FR"))
-            else:
-                speak_espeak(
-                    message,
-                    voice=params.get("voice", "fr+f3"),
-                    speed=params.get("speed", "140"),
-                    pitch=params.get("pitch"),
-                )
+                engine = params.get("engine", "espeak")
+                if engine == "pico2wave":
+                    speak_pico(message, voice=params.get("voice", "fr-FR"))
+                else:
+                    speak_espeak(
+                        message,
+                        voice=params.get("voice", "fr+f3"),
+                        speed=params.get("speed", "140"),
+                        pitch=params.get("pitch"),
+                    )
+        # ici, EOF atteint (writer fermé) → on reboucle et on ré-ouvre en lecture
 
-
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()

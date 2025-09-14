@@ -83,10 +83,10 @@
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
-- name: Copy initail db db.sqlite3 file to target
+- name: Copy intitial db db.sqlite3 file to target
   copy:
     src: "{{ backend_src }}/initialdb/db.sqlite3"
-    dest:  "{{ backend_src }}"
+    dest:  "{{ backend_src }}/db.sqlite3"
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0644"

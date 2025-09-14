@@ -674,8 +674,39 @@ import platform
 from datetime import datetime
 from django.conf import settings
 import logging
+import os, errno, platform, stat
 
 logger = logging.getLogger(__name__)
+
+import os, errno, platform, stat
+
+
+def write_fifo_line(fifo_path: str, line: str, logger):
+    # Créer la FIFO au besoin
+    if not os.path.exists(fifo_path):
+        if platform.system() != "Windows":
+            os.mkfifo(fifo_path)
+            os.chmod(fifo_path, 0o666)
+            logger.warning(f"[SPEAKER] FIFO manquante recréée : {fifo_path}")
+        else:
+            logger.error(f"[SPEAKER] FIFO non supportée sur Windows ({fifo_path}).")
+            return
+
+    try:
+        # Ouvrir en non-bloquant : si aucun lecteur → ENXIO
+        fd = os.open(fifo_path, os.O_WRONLY | os.O_NONBLOCK)
+    except OSError as e:
+        if e.errno == errno.ENXIO:
+            logger.warning(
+                "[SPEAKER] Aucun listener ouvert sur la FIFO — message ignoré."
+            )
+            return
+        raise
+
+    with os.fdopen(fd, "w") as fifo:
+        fifo.write(line)
+        fifo.flush()
+    logger.info(f"[SPEAKER] Message écrit dans FIFO {fifo_path} : {line.strip()}")
 
 
 def log_message_to_speaker(msg, target):
@@ -704,35 +735,8 @@ def log_message_to_speaker(msg, target):
 
     # ligne envoyée
     line = f"{speaker_str} {spoken_text}\n"
-    fifo_path = settings.SPEAKER.get("fifo_path", "/tmp/speak.fifo")
     logger.info(line)
-    # Vérifier si la FIFO existe
-    if not os.path.exists(fifo_path):
-        try:
-            if platform.system() != "Windows":
-                os.mkfifo(fifo_path)
-                os.chmod(fifo_path, 0o666)
-                logger.warning(f"[SPEAKER] FIFO manquante recréée : {fifo_path}")
-            else:
-                logger.error(
-                    f"[SPEAKER] Impossible de créer une FIFO sur Windows ({fifo_path})."
-                )
-                return
-        except Exception as e:
-            logger.error(
-                f"[SPEAKER] Erreur lors de la création de la FIFO {fifo_path}: {e}"
-            )
-            return
-
-    # Essayer d'écrire
-    try:
-        with open(fifo_path, "w") as fifo:
-            fifo.write(line)
-
-        logger.info(f"[SPEAKER] Message écrit dans FIFO {fifo_path} : {line.strip()}")
-
-    except Exception as e:
-        logger.error(f"[SPEAKER] Erreur lors de l’écriture dans {fifo_path}: {e}")
+    write_fifo_line(settings.SPEAKER.get("fifo_path", "/tmp/speak.fifo"), line, logger)
 
 
 @extend_schema(tags=["actions"])
