@@ -21,7 +21,7 @@ import os
 import re
 import shlex
 
-LOGFILE = "/opt/nuagefernandez/backend/logs/app.log"  # adapte au chemin de tes logs
+LOGFILE = "/opt/nuagefernandez/backend/logs/django.log"  # adapte au chemin de tes logs
 
 
 # -----------------------------
@@ -88,7 +88,7 @@ def parse_line(line):
 
 def main():
     # Message de démarrage
-    speak_espeak("Speaker listener démarré et prêt", voice="fr+f3")
+    speak_pico("Bonjour les enfant, je suis votre ami ", voice="fr-FR")
 
     # tail -F pour suivre le log en continu
     process = subprocess.Popen(

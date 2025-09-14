@@ -5,7 +5,7 @@ After=network.target sound.target
 [Service]
 Type=simple
 ExecStartPre=/usr/bin/amixer sset 'PCM' 95%
-ExecStart=/usr/bin/python3 /usr/local/bin/speaker_listener.py
+ExecStart={{ venv_dir }}/bin/python /usr/local/bin/speaker_listener.py
 Restart=always
 User={{ app_user }}
 Group={{ app_group }}
