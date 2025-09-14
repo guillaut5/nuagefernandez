@@ -1,6 +1,7 @@
 [Unit]
 Description={{ project_name }} (gunicorn)
-After=network.target
+After=network.target speaker-listener.service
+Wants=speaker-listener.service
 
 [Service]
 User={{ app_user }}
