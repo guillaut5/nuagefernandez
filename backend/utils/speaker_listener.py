@@ -16,6 +16,14 @@ Ce script lit une FIFO (pipe nommé) et prononce à voix haute les messages reç
 💡 Bonnes pratiques :
     - Ce script doit être lancé en service (systemd) pour tourner en continu
     - La FIFO /tmp/speak.fifo est créée automatiquement si elle n’existe pas
+    - Pour un volume correct : régler `amixer sset PCM 95%`
+
+les commandes a la main pour le son
+espeak -v fr+f3 -s 140  "Test" --stdout | aplay -D sysdefault:CARD=Headphones
+ espeak -v fr+f3 -s 140  "Test normalisé quarante-huit kilohertz" --stdout | sox -t wav - -t wav - channels 2 rate 48000 norm -0.1 | aplay -D sysdefault:CARD=Headphones
+
+pico2wave -l fr-FR -w /tmp/test.wav "bonjour le monde " ; aplay -q /tmp/test.wav
+
 """
 
 import subprocess
@@ -41,7 +49,10 @@ def speak_espeak(message, voice="fr+f3", speed="140", pitch=None):
     if pitch:
         cmd.append(f"-p{pitch}")
     cmd.append(message)
-    subprocess.run(cmd)
+
+    # Envoie la sortie audio d'espeak vers aplay sur le jack
+    p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    subprocess.run(["aplay", "-D", "sysdefault:CARD=Headphones"], stdin=p1.stdout)
 
 
 def speak_pico(message, voice="fr-FR"):
@@ -54,14 +65,13 @@ def speak_pico(message, voice="fr-FR"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
         wav_path = f.name
     try:
-        # génération fichier wav
         subprocess.run(
             ["pico2wave", f"-l={voice}", "-w", wav_path, message], check=True
         )
-        # lecture avec aplay
-        subprocess.run(["aplay", wav_path], check=True)
+        subprocess.run(
+            ["aplay", "-D", "sysdefault:CARD=Headphones", wav_path], check=True
+        )
     finally:
-        # nettoyage
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
@@ -83,17 +93,15 @@ def parse_line(line):
     :param line: ligne brute venant de la FIFO
     :return: (params, message)
     """
-    parts = shlex.split(line)  # sépare en respectant les guillemets
+    parts = shlex.split(line)
     params = {"engine": "espeak", "voice": "fr+f3", "speed": "140", "pitch": None}
     message_parts = []
 
     for p in parts:
         if "=" in p and not p.startswith(("'", '"')):
-            # c'est un paramètre clé=valeur
             k, v = p.split("=", 1)
             params[k] = v
         else:
-            # fait partie du texte du message
             message_parts.append(p)
 
     return params, " ".join(message_parts)
@@ -107,15 +115,13 @@ def parse_line(line):
 def main():
     fifo_path = "/tmp/speak.fifo"
 
-    # Crée la FIFO si elle n'existe pas
     if not os.path.exists(fifo_path):
         os.mkfifo(fifo_path)
-        os.chmod(fifo_path, 0o666)  # accessible à tous
+        os.chmod(fifo_path, 0o666)
 
     # Petit message de démarrage
-    speak_espeak("Bonjour bande de petit morveux, je suis prêt", voice="fr+f3")
+    speak_espeak("Bonjour bande de petit morveux, je suis pret", voice="fr+f3")
 
-    # Boucle infinie de lecture
     with open(fifo_path, "r") as fifo:
         for line in fifo:
             params, message = parse_line(line.strip())

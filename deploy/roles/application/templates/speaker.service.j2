@@ -3,6 +3,8 @@ Description=Speaker Listener Service
 After=network.target sound.target
 
 [Service]
+Type=simple
+ExecStartPre=/usr/bin/amixer sset 'PCM' 95%
 ExecStart=/usr/bin/python3 /usr/local/bin/speaker_listener.py
 Restart=always
 User={{ app_user }}
