@@ -40,7 +40,7 @@
     regexp: '^\s*server_name\s+'
     line: "    server_name {{ duckdns_domain }};"
     state: present
-  notify: Reload nginx
+  notify: reload nginx
   when: use_https | default(true)
 
 - name: Obtain HTTPS certificate with Certbot (Nginx plugin)
@@ -52,3 +52,9 @@
               --redirect
   when: use_https | default(true)
   become: true
+
+
+- name: Ensure nginx restarted
+  systemd:
+    name: nginx
+    state: restarted
