@@ -736,7 +736,7 @@ def log_message_to_speaker(msg, target):
     # ligne envoyée
     line = f"{speaker_str} {spoken_text}\n"
     logger.info(line)
-    write_fifo_line(settings.SPEAKER.get("fifo_path", "/tmp/speak.fifo"), line, logger)
+    logger.info("[TOSPEAK] %s %s", speaker_str, spoken_text)
 
 
 @extend_schema(tags=["actions"])
