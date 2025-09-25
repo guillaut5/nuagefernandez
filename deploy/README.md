@@ -48,6 +48,10 @@ cd deploy
 # Vérifier la connexion locale
 ansible -m ping nuage
 
+# Lancer l'upgader du code only :
+ansible-playbook site.yml -K --tags code
+
+
 # Lancer l’installation complète
 ansible-playbook site.yml -K
 ```

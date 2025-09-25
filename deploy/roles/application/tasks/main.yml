@@ -1,192 +1,214 @@
-
 # --- Users & directories ---
-- name: Ensure app group exists
-  group:
-    name: "{{ app_group }}"
-    state: present
+- name: Users & directories (setup)
+  tags: [setup]
+  block:
+    - name: Ensure app group exists
+      group:
+        name: "{{ app_group }}"
+        state: present
 
-- name: Ensure app user exists
-  user:
-    name: "{{ app_user }}"
-    group: "{{ app_group }}"
-    home: "{{ project_root }}"
-    shell: /usr/sbin/nologin
-    create_home: yes
-    system: yes
+    - name: Ensure app user exists
+      user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        home: "{{ project_root }}"
+        shell: /usr/sbin/nologin
+        create_home: yes
+        system: yes
 
-- name: Add nginx user to app group (for socket access)
-  user:
-    name: "{{ web_group }}"
-    groups: "{{ app_group }}"
-    append: yes
+    - name: Add nginx user to app group (for socket access)
+      user:
+        name: "{{ web_group }}"
+        groups: "{{ app_group }}"
+        append: yes
 
-- name: Create project directories
-  file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0770"
-  loop:
-    - "{{ project_root }}"
-    - "{{ project_root }}/logs"
+    - name: Create project directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0770"
+      loop:
+        - "{{ project_root }}"
+        - "{{ project_root }}/logs"
 
-# --- Backend ---
+# --- Backend (code path) ---
+- name: Backend code & deps (update path)
+  tags: [code]
+  block:
+    - name: Synchronize backend code
+      synchronize:
+        src: "{{ backend_src }}/"
+        dest: "{{ backend_dest }}/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=node_modules"
+          - "--exclude=__pycache__"
 
-- name: Synchronize backend code
-  synchronize:
-    src: "{{ backend_src }}/"
-    dest: "{{ backend_dest }}/"
-    delete: yes
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=node_modules"
-      - "--exclude=__pycache__"
+    - name: Fix permissions on backend
+      file:
+        path: "{{ backend_dest }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0750"
+        recurse: yes
 
-- name: Fix permissions on backend
-  file:
-    path: "{{ backend_dest }}"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0750"
-    recurse: yes
+    # venv = setup (rarement change), donc je le sors du chemin "code"
+    # -> Si tu préfères le garder ici, enlève le tag 'setup' ci-dessous.
+- name: Backend venv (setup)
+  tags: [setup]
+  block:
+    - name: Create Python venv
+      command: "python3 -m venv {{ venv_dir }}"
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+      become: yes
+      become_user: "{{ app_user }}"
 
-- name: Create Python venv
-  command: "python3 -m venv {{ venv_dir }}"
-  args:
-    creates: "{{ venv_dir }}/bin/activate"
-  become: yes
-  become_user: "{{ app_user }}"
+    - name: Install backend requirements
+      pip:
+        requirements: "{{ backend_dest }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+      become: yes
+      become_user: "{{ app_user }}"
 
-- name: Install backend requirements
-  pip:
-    requirements: "{{ backend_dest }}/requirements.txt"
-    virtualenv: "{{ venv_dir }}"
-  become: yes
-  become_user: "{{ app_user }}"
+- name: Backend collectstatic + migrate (code)
+  tags: [code]
+  block:
+    - name: Collect static (Django)
+      command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
+      args:
+        chdir: "{{ backend_dest }}"
+      become: yes
+      become_user: "{{ app_user }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
-- name: Collect static (Django)
-  command: "{{ venv_dir }}/bin/python manage.py collectstatic --noinput"
-  args:
-    chdir: "{{ backend_dest }}"
-  become: yes
-  become_user: "{{ app_user }}"  
-  environment:
-    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+    - name: Run migrations (Django)
+      command: "{{ venv_dir }}/bin/python manage.py migrate --noinput"
+      args:
+        chdir: "{{ backend_dest }}"
+      become: yes
+      become_user: "{{ app_user }}"
+      environment:
+        DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
 
-- name: Run migrations (Django)
-  command: "{{ venv_dir }}/bin/python manage.py migrate --noinput"
-  become: yes
-  become_user: "{{ app_user }}"
-  args:
-    chdir: "{{ backend_dest }}"
-  environment:
-    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
-
-- name: Copy intitial db db.sqlite3 file to target
+# (et je le mets en setup si tu veux un seed à l’install uniquement)
+- name: Optional initial SQLite seed (setup)
+  tags: [setup]
+  when: seed_sqlite | default(false)
   copy:
     src: "{{ backend_src }}/initialdb/db.sqlite3"
-    dest:  "{{ backend_src }}/db.sqlite3"
+    dest: "{{ backend_dest }}/db.sqlite3"
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0644"
+    force: no
 
-# --- Speaker prerequisites ---
-- name: Install speaker packages
-  apt:
-    name:
-      - espeak
-      - libttspico-utils
-      - alsa-utils
-    state: present
-    update_cache: yes
+# --- Speaker prerequisites (setup) ---
+- name: Speaker prerequisites (setup)
+  tags: [setup]
+  block:
+    - name: Install speaker packages
+      apt:
+        name:
+          - espeak
+          - libttspico-utils
+          - alsa-utils
+        state: present
+        update_cache: yes
 
-- name: Deploy speaker listener script
-  copy:
-    src: "{{ backend_src }}/utils/speaker_listener.py"
-    dest: /usr/local/bin/speaker_listener.py
-    owner: root
-    group: root
-    mode: "0755"
+    - name: Deploy speaker listener script
+      copy:
+        src: "{{ backend_src }}/utils/speaker_listener.py"
+        dest: /usr/local/bin/speaker_listener.py
+        owner: root
+        group: root
+        mode: "0755"
 
-- name: Install systemd service (speaker)
-  template:
-    src: speaker.service.j2
-    dest: /etc/systemd/system/speaker.service
-  notify:
-    - daemon-reload
-    - restart speaker
+    - name: Install systemd service (speaker)
+      template:
+        src: speaker.service.j2
+        dest: /etc/systemd/system/speaker.service
+      notify:
+        - daemon-reload
+        - restart speaker
 
-- name: Synchronize frontend code
-  synchronize:
-    src: "{{ frontend_src }}/"
-    dest: "{{ frontend_dest }}/"
-    delete: yes
-    rsync_opts:
-      - "--exclude=node_modules"
+# --- Frontend (code path) ---
+- name: Frontend code & build (code)
+  tags: [code]
+  block:
+    - name: Synchronize frontend code
+      synchronize:
+        src: "{{ frontend_src }}/"
+        dest: "{{ frontend_dest }}/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=node_modules"
 
-- name: Fix permissions on frontend
-  file:
-    path: "{{ frontend_dest }}"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0750"
-    recurse: yes
+    - name: Fix permissions on frontend
+      file:
+        path: "{{ frontend_dest }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0750"
+        recurse: yes
 
-- name: Install frontend dependencies
-  npm:
-    path: "{{ frontend_dest }}"
-    production: false
+    - name: Install frontend dependencies
+      npm:
+        path: "{{ frontend_dest }}"
+        production: false
 
-- name: Build frontend
-  command: "{{ frontend_build_cmd }}"
-  args:
-    chdir: "{{ frontend_dest }}"
+    - name: Build frontend
+      command: "{{ frontend_build_cmd }}"
+      args:
+        chdir: "{{ frontend_dest }}"
 
+# --- Services & Nginx (setup) ---
+- name: Services & Nginx (setup)
+  tags: [setup]
+  block:
+    - name: Install systemd service (gunicorn)
+      template:
+        src: gunicorn.service.j2
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+      notify:
+        - daemon-reload
+        - restart app
 
+    - name: Nginx site
+      template:
+        src: nginx.conf.j2
+        dest: "/etc/nginx/sites-available/{{ service_name }}"
+      notify: reload nginx
 
+    - name: Enable nginx site
+      file:
+        src: "/etc/nginx/sites-available/{{ service_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ service_name }}"
+        state: link
+        force: yes
+      notify: reload nginx
 
+    - name: Disable default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
 
-# --- Services ---
-- name: Install systemd service (gunicorn)
-  template:
-    src: gunicorn.service.j2
-    dest: "/etc/systemd/system/{{ service_name }}.service"
-  notify:
-    - daemon-reload
-    - restart app
+    - name: Ensure nginx enabled
+      systemd:
+        name: nginx
+        enabled: yes
 
-- name: Nginx site
-  template:
-    src: nginx.conf.j2
-    dest: "/etc/nginx/sites-available/{{ service_name }}"
-  notify: reload nginx
+    - name: Ensure nginx started
+      systemd:
+        name: nginx
+        state: started
 
-- name: Enable nginx site
-  file:
-    src: "/etc/nginx/sites-available/{{ service_name }}"
-    dest: "/etc/nginx/sites-enabled/{{ service_name }}"
-    state: link
-    force: yes
-  notify: reload nginx
-
-- name: Disable default nginx site
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  notify: reload nginx
-
-- name: Ensure nginx enabled
-  systemd:
-    name: nginx
-    enabled: yes
-
-- name: Ensure nginx restarted
-  systemd:
-    name: nginx
-    state: restarted
-
-- name: Ensure nuage restarted
-  systemd:
-    name: nuage
-    state: restarted
+    - name: Ensure app started
+      systemd:
+        name: nuage
+        state: started
