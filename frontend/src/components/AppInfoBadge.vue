@@ -5,6 +5,27 @@ import { Github } from 'lucide-vue-next'
 
 const open = ref(false)
 const line = formatAppInfoLine()
+
+async function copyInfo() {
+  const text = JSON.stringify(APP_INFO, null, 2)
+  try {
+    if (globalThis?.navigator?.clipboard?.writeText) {
+      await globalThis.navigator.clipboard.writeText(text)
+      // optionnel: petit feedback
+      // alert('Infos copiées ✅')
+    } else {
+      // fallback très basique
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+  } catch (e) {
+    console.error('Copy failed', e)
+  }
+}
 </script>
 
 <template>
@@ -54,10 +75,7 @@ const line = formatAppInfoLine()
       </ul>
 
       <div class="mt-3 flex gap-2 justify-end">
-        <button
-          class="px-3 py-1.5 rounded-md border hover:bg-gray-50"
-          @click="navigator.clipboard.writeText(JSON.stringify(APP_INFO, null, 2))"
-        >
+        <button class="px-3 py-1.5 rounded-md border hover:bg-gray-50" @click="copyInfo">
           Copier
         </button>
         <button class="px-3 py-1.5 rounded-md bg-black text-white" @click="open = false">
