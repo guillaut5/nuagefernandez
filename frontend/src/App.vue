@@ -23,6 +23,7 @@ function handleLogout() {
       <nav class="container mx-auto px-3 py-2 md:px-6 md:py-3 flex justify-between items-center">
         <!-- bloc gauche -->
         <div class="flex items-center gap-2 md:gap-3 shrink-0">
+          VO
           <img src="@/assets/logo.png" alt="Logo" class="h-8 w-8 rounded shrink-0" />
           <!-- <span class="font-semibold text-xs">NudagePrivé</span> -->
         </div>

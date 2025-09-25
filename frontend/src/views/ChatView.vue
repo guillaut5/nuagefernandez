@@ -50,7 +50,6 @@ const sending = ref(false)
 
     <!-- DESKTOP : sidebar fixe, toujours visible -->
     <aside class="hidden md:flex w-72 border-r bg-white flex-shrink-0">
-      ccc
       <ChatSidebar :active-id="activeConversationId" />
     </aside>
     <!-- ================= CHAT VIEW ================= -->
