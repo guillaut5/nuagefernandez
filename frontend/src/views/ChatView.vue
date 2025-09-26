@@ -1,3 +1,4 @@
+<!-- chatView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
@@ -49,13 +50,15 @@ const sending = ref(false)
     </aside>
 
     <!-- DESKTOP : sidebar fixe, toujours visible -->
-    <aside class="hidden md:flex w-72 border-r bg-white flex-shrink-0">
+    <aside
+      class="hidden md:flex w-80 flex-shrink-0 bg-white/60 backdrop-blur-xl border-r shadow-[0_10px_40px_rgba(0,0,0,0.06)]"
+    >
       <ChatSidebar :active-id="activeConversationId" />
     </aside>
     <!-- ================= CHAT VIEW ================= -->
     <div v-if="activeThread" class="flex flex-col flex-1">
       <!-- Header avec bouton retour (mobile only) -->
-      <div class="h-12 flex items-center px-4 border-b bg-white shadow-sm">
+      <div class="h-12 flex items-center px-4 border-b bg-white/70 backdrop-blur sticky top-0 z-10">
         <button class="md:hidden mr-2 text-gray-600" @click="activeConversationId = null">
           <ArrowLeft class="w-6 h-6" />
         </button>
