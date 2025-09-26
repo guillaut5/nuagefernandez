@@ -15,6 +15,7 @@ export interface ConversationSummary {
   last_message_at: string // ISO
   unread_count: number
   isDraft?: boolean
+  preview?: string
 }
 
 export interface ConversationDetail {
