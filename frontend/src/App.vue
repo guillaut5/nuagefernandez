@@ -33,6 +33,8 @@ function handleLogout() {
           <!-- nav liens -->
           <ul class="hidden xs:flex items-center gap-2 text-xs font-medium">
             <li><RouterLink to="/chat" class="hover:text-blue-600">Chat</RouterLink></li>
+            <li><a href="/admin" rel="noopener">Admin</a></li>
+
             <!-- <li><RouterLink to="/profile" class="hover:text-blue-600">Profil</RouterLink></li> -->
           </ul>
 
