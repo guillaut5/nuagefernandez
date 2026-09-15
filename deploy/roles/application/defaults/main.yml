@@ -11,6 +11,10 @@ web_group: "www-data"
 service_name: "nuage"
 django_settings_module: "nuagefernandez.settings"
 wsgi_module: "nuagefernandez.wsgi:application"
+# NE PAS augmenter sans adapter user_messages/sse_bus.py : le flux temps réel
+# (SSE) du chat utilise une queue en mémoire par process. Avec plusieurs
+# workers, les notifications ne seraient livrées qu'aux clients connectés
+# au worker qui a traité l'envoi du message.
 gunicorn_workers: 1
 gunicorn_threads: 4
 gunicorn_socket: "{{ project_root }}/gunicorn.sock"

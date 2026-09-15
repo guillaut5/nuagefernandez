@@ -1,4 +1,11 @@
 # -- Genre de MQTT local, en memoire... Ne marche que sur un seul process.
+#
+# Concrètement : `_queues` vit dans la mémoire du process Python. Si gunicorn
+# tourne avec plusieurs workers, chacun a sa propre copie de `_queues`, donc
+# `publish()` dans un worker ne réveille pas les queues souscrites dans un
+# autre. Le déploiement (deploy/roles/application/defaults/main.yml) force
+# `gunicorn_workers: 1` pour cette raison. Pour scaler un jour, remplacer ce
+# module par un vrai pub/sub partagé (ex: Redis) plutôt que par plus de workers.
 
 from collections import defaultdict
 from queue import Queue

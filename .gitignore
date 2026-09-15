@@ -17,3 +17,4 @@ backend/nuagefernandez/__pycache__/settings.cpython-313.pyc
 backend/nuagefernandez/__pycache__/settings.cpython-313.pyc
 backend/nuagefernandez/__pycache__/settings.cpython-313.pyc
 backend/logs/django.log
+backend/.env

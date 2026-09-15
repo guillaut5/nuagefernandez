@@ -1,12 +1,31 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 
 # BASE_DIR pour chemins absolus
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Clé secrète Django (tu pourras la changer plus tard pour plus de sécurité)
-SECRET_KEY = "django-insecure-nuagefernandez-1234567890"
+# En local, pas de .env : les valeurs par défaut ci-dessous (dev) s'appliquent.
+# En prod, on crée backend/.env (voir backend/.env.example) pour verrouiller
+# SECRET_KEY / DEBUG / ALLOWED_HOSTS / CORS sans toucher au code.
+load_dotenv(BASE_DIR / ".env")
+
+
+def _env_bool(name, default):
+    return os.environ.get(name, str(default)).strip().lower() in ("1", "true", "yes")
+
+
+def _env_list(name, default):
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+# Clé secrète Django. La valeur par défaut ne convient QUE pour du dev local :
+# en prod, définir DJANGO_SECRET_KEY dans backend/.env.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-nuagefernandez-1234567890")
 
 # Choix de la commande de speaker
 SPEAKER = {
@@ -18,11 +37,13 @@ SPEAKER = {
     "pitch": "70",
     "fifo_path": "/tmp/speak.fifo",
 }
-# Debug activé pour ton projet local
-DEBUG = True
 
-# Autoriser tout pour l'instant
-ALLOWED_HOSTS = ["*"]
+# Debug activé par défaut (confort dev local) ; mettre DJANGO_DEBUG=False en prod.
+DEBUG = _env_bool("DJANGO_DEBUG", True)
+
+# Autoriser tout par défaut (dev local) ; restreindre via DJANGO_ALLOWED_HOSTS
+# en prod (ex: "monprojet.duckdns.org").
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", ["*"])
 
 # Applications installées
 INSTALLED_APPS = [
@@ -39,7 +60,13 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
+
+# Autorise toutes les origines par défaut (dev local). En prod, mettre
+# DJANGO_CORS_ALLOW_ALL=False et lister DJANGO_CORS_ALLOWED_ORIGINS
+# (ex: "https://monprojet.duckdns.org").
+CORS_ALLOW_ALL_ORIGINS = _env_bool("DJANGO_CORS_ALLOW_ALL", True)
+if not CORS_ALLOW_ALL_ORIGINS:
+    CORS_ALLOWED_ORIGINS = _env_list("DJANGO_CORS_ALLOWED_ORIGINS", [])
 
 
 # Rest Framework
@@ -109,14 +136,14 @@ TEMPLATES = [
 
 # WSGI
 # WSGI_APPLICATION = "nuagefernandez.wsgi.application"
-# ASGI (pour les channls)
-ASGI_APPLICATION = "nuagefernandez.asgi.application"
-
-# channels:
-# Channels layers - on utilise la mémoire pour l'instant (simple pour commencer)
-CHANNEL_LAYERS = {
-    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
-}
+#
+# Le temps réel du chat (nouveaux messages, sidebar) passe par SSE
+# (voir user_messages/sse_bus.py + SSEMessagesView), pas par des WebSockets/
+# Channels. Le bus SSE est une simple queue en mémoire Python : il ne
+# fonctionne QUE si gunicorn tourne avec un seul worker (voir
+# deploy/roles/application/defaults/main.yml -> gunicorn_workers). Avec
+# plusieurs workers, chaque process aurait sa propre queue et les
+# notifications se perdraient silencieusement pour la moitié des clients.
 
 # Base de données SQLite
 DATABASES = {

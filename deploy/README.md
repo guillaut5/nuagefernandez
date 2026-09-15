@@ -109,6 +109,23 @@ ansible-playbook -i inventory deploy_duckdns.yml -K
 
 ---
 
+## 🔒 Configuration `.env` (production)
+
+Avant (ou après) le premier déploiement, créer `/opt/nuagefernandez/backend/.env`
+sur le serveur à partir de `backend/.env.example`, avec une vraie `DJANGO_SECRET_KEY`,
+`DJANGO_DEBUG=False`, et `DJANGO_ALLOWED_HOSTS` / `DJANGO_CORS_ALLOWED_ORIGINS`
+réglés sur le domaine DuckDNS. Sans ce fichier, l'appli tourne avec les valeurs
+par défaut de dev (`DEBUG=True`, hosts/CORS ouverts à tout) — pratique en local,
+à éviter une fois le domaine exposé publiquement.
+
+```bash
+sudo -u nuage cp /opt/nuagefernandez/backend/.env.example /opt/nuagefernandez/backend/.env
+sudo -u nuage nano /opt/nuagefernandez/backend/.env
+sudo systemctl restart nuage
+```
+
+---
+
 ## 📦 Variables implicites
 
 Chemins et réglages par défaut :
