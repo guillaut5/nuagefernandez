@@ -1,1 +1,32 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Baloo 2', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Palette "coloré mais épuré" — même chroma/luminosité, teinte différente par usage */
+  --color-sky-50: oklch(93% 0.03 250);
+  --color-sky-500: oklch(62% 0.14 250);
+  --color-sky-600: oklch(48% 0.14 250);
+
+  --color-coral-50: oklch(94% 0.035 35);
+  --color-coral-500: oklch(66% 0.16 35);
+  --color-coral-600: oklch(52% 0.16 35);
+
+  --color-mint-50: oklch(94% 0.03 165);
+  --color-mint-500: oklch(68% 0.13 165);
+  --color-mint-600: oklch(42% 0.1 165);
+
+  --color-sun-50: oklch(95% 0.045 95);
+  --color-sun-500: oklch(78% 0.14 95);
+  --color-sun-600: oklch(48% 0.11 95);
+
+  --color-grape-50: oklch(94% 0.03 300);
+  --color-grape-500: oklch(60% 0.14 300);
+  --color-grape-600: oklch(46% 0.14 300);
+}
+
+body {
+  font-family: var(--font-sans);
+}

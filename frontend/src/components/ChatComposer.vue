@@ -125,25 +125,28 @@ function newlineOrSend(mode: 'newline' | 'send') {
 </script>
 
 <template>
-  <div class="p-3 border-t flex flex-col gap-2">
+  <div class="p-3.5 border-t border-gray-100 flex flex-col gap-2.5">
     <!-- Aperçu image -->
     <div v-if="imagePreview" class="flex items-center gap-3">
-      <img :src="imagePreview" alt="aperçu" class="h-16 w-16 object-cover rounded-md border" />
-      <button @click="clearImage" class="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">
+      <img :src="imagePreview" alt="aperçu" class="h-16 w-16 object-cover rounded-xl border border-gray-200" />
+      <button
+        @click="clearImage"
+        class="px-2.5 py-1 text-sm rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+      >
         ✕ Retirer
       </button>
     </div>
 
     <!-- Ligne principale -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2.5">
       <!-- Bouton caméra -->
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100 border"
+        class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl bg-sun-50 text-sun-600 hover:brightness-95 transition"
         @click="openCamera"
         :disabled="props.sending"
       >
-        <Camera class="w-5 h-5" />
+        <Camera class="w-[19px] h-[19px]" />
       </button>
       <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="handleFile" />
 
@@ -151,7 +154,7 @@ function newlineOrSend(mode: 'newline' | 'send') {
       <textarea
         v-model="replyText"
         placeholder="Écrire un message…"
-        class="flex-1 border rounded-2xl p-2 min-h-[42px] max-h-40 resize-y focus:outline-none"
+        class="flex-1 border-[1.5px] border-gray-200 bg-gray-50 rounded-2xl px-4 py-3 min-h-[42px] max-h-40 resize-y text-[14px] focus:outline-none focus:ring-4 focus:ring-sky-50 focus:border-sky-500"
         @keydown.enter.exact.prevent="newlineOrSend('newline')"
         @keydown.enter.ctrl.prevent="newlineOrSend('send')"
         @keydown.enter.meta.prevent="newlineOrSend('send')"
@@ -160,26 +163,34 @@ function newlineOrSend(mode: 'newline' | 'send') {
       <!-- Bouton envoyer -->
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+        class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-2xl bg-coral-500 text-white hover:bg-coral-600 shadow-[0_8px_18px_rgba(230,110,60,0.35)] disabled:opacity-50 disabled:shadow-none transition"
         :disabled="props.sending || (!replyText.trim() && !imageFile)"
         @click="sendMessage"
       >
-        <Send class="w-5 h-5" />
+        <Send class="w-[18px] h-[18px]" />
       </button>
     </div>
 
     <!-- Modal caméra -->
     <div
       v-if="showCamera"
-      class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      class="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4"
     >
-      <div class="bg-white rounded-md p-4 w-full max-w-md">
-        <video ref="videoRef" autoplay playsinline class="w-full rounded-md"></video>
+      <div class="bg-white rounded-2xl p-4 w-full max-w-md">
+        <video ref="videoRef" autoplay playsinline class="w-full rounded-xl"></video>
         <div class="mt-3 flex gap-2">
-          <button @click="capturePhoto" class="flex-1 bg-blue-600 text-white rounded py-2">
-            📸 Capturer
+          <button
+            @click="capturePhoto"
+            class="flex-1 inline-flex items-center justify-center gap-2 bg-coral-500 text-white rounded-xl py-2.5 font-semibold hover:bg-coral-600"
+          >
+            <Camera class="w-4 h-4" /> Capturer
           </button>
-          <button @click="closeCamera" class="flex-1 bg-gray-200 rounded py-2">Fermer</button>
+          <button
+            @click="closeCamera"
+            class="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 font-semibold hover:bg-gray-200"
+          >
+            Fermer
+          </button>
         </div>
       </div>
     </div>
