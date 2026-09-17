@@ -5,10 +5,6 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("user_messages.urls")),  # Toutes les URLs de ton app "messages"
-    path(
-        "accounts/", include("django.contrib.auth.urls")
-    ),  # Login, Logout de Django natif
     path("api/", include("nuagefernandez.api_urls")),  # <- tout passe par /api/
 ]
 

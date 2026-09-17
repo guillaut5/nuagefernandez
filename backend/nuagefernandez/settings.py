@@ -54,7 +54,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "user_messages",  # Notre app
-    "widget_tweaks",
     "rest_framework",
     "rest_framework_simplejwt",
     "drf_spectacular",
@@ -116,11 +115,11 @@ SIMPLE_JWT = {
 # URLs
 ROOT_URLCONF = "nuagefernandez.urls"
 
-# Templates
+# Templates (utilisés par l'admin Django et la doc Swagger — plus d'UI HTML côté app)
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "messages", "templates")],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -128,7 +127,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "user_messages.context_processors.new_messages_count",
             ],
         },
     },
@@ -183,10 +181,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # Dossier des médias (images uploadées)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "uploads")
-
-# Redirection après login
-LOGIN_REDIRECT_URL = "/messages/"
-LOGIN_REDIRECT_URL = "/login/success/"
 
 # Default auto field
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
