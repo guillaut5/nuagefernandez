@@ -39,12 +39,9 @@ from drf_spectacular.utils import (
 # Local app
 from nuagefernandez.api.auth.authentification import CookieJWTAuthentication
 from .models import Group, Message, MessageReadStatus
-from .pagination import FifteenPerPagePagination
 from .serializers import (
     ConversationSummarySerializer,
     GroupSerializer,
-    MessageReadStatusSerializer,
-    MessageReadStatusUpdateSerializer,
     MessageSendSerializer,
     MessageSerializer,
     MessageThreadSerializer,
@@ -795,73 +792,6 @@ class DeleteForAllMessageAPIView(APIView):
             # OU anonymiser: msg.text="", msg.image=None, puis save()
 
         return Response({"status": "ok", "deleted_for_all": True})
-
-
-@extend_schema(tags=["oldstuff"])
-class UserMessagesListAPIView(generics.ListAPIView):
-    """
-    GET /api/messages/  ->  Liste paginée des messages destinés à l'utilisateur
-    avec leur statut de lecture / suppression.
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = MessageReadStatusSerializer
-    pagination_class = FifteenPerPagePagination
-
-    def get_queryset(self):
-        user = self.request.user
-        return (
-            MessageReadStatus.objects.filter(
-                user=user,
-                is_hidden=False,
-                message__deleted_for_all=False,
-            )
-            .select_related(
-                "message",
-                "message__sender",
-                "message__recipient",
-                "message__recipient_group",
-            )
-            .order_by("-message__timestamp")
-        )
-
-
-# pour lister les message status
-@extend_schema(tags=["oldstuff"])
-class MessageReadStatusUpdateAPIView(generics.UpdateAPIView):
-    """
-    PATCH /api/message-status/<pk>/  ->  Marquer un message comme lu / supprimé
-    (uniquement si le statut appartient à l'utilisateur connecté).
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = MessageReadStatusUpdateSerializer
-    http_method_names = ["patch"]
-
-    def get_queryset(self):
-        return MessageReadStatus.objects.filter(user=self.request.user)
-
-
-# - messages envoyés
-@extend_schema(tags=["oldstuff"])
-class UserSentMessagesListAPIView(generics.ListAPIView):
-    """
-    GET /api/messages/sent/  ->  Liste paginée des messages que l'utilisateur a envoyés.
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = MessageSerializer  # pas besoin du statut
-    pagination_class = FifteenPerPagePagination
-
-    def get_queryset(self):
-        return (
-            Message.objects.filter(
-                sender=self.request.user,
-                deleted_for_all=False,
-            )
-            .select_related("sender", "recipient", "recipient_group")
-            .order_by("-timestamp")
-        )
 
 
 # -- tous les gropues

@@ -1,11 +1,5 @@
 import { defineStore } from 'pinia'
-import type {
-  Message,
-  MessageStatus,
-  Paginated,
-  ConversationDetail,
-  ConversationSummary,
-} from '@/types/api'
+import type { Message, ConversationDetail, ConversationSummary } from '@/types/api'
 import api from '@/api/http' // <-- au lieu de axios
 import { useAuth } from '@/store/useAuth'
 import { useUserGroupStore } from '@/store/useUserGroupStore'
@@ -13,9 +7,6 @@ import { base_url } from '@/api/http'
 interface MessagesState {
   conversationsSummaries: ConversationSummary[] // sidebar
   threads: Record<string, ConversationDetail> // cache par convId
-  inbox: MessageStatus[]
-  sent: Message[]
-  userFilter: number | null
   activeConversationId: string | null // pratique
   _pending: Set<string> // évite doubles clics
 
@@ -28,9 +19,6 @@ export const useMessages = defineStore('messages', {
   state: (): MessagesState => ({
     conversationsSummaries: [],
     threads: {},
-    inbox: [],
-    sent: [],
-    userFilter: null,
     activeConversationId: null,
     _pending: new Set<string>(),
     _es: null,
@@ -368,57 +356,5 @@ export const useMessages = defineStore('messages', {
       await Promise.all([this.fetchThread(convId), this.fetchConversationsSummary()])
     },
 
-    async fetchInbox() {
-      try {
-        const response = await api.get<Paginated<MessageStatus>>('/messages/messages/', {
-          params: { user: this.userFilter },
-        })
-
-        this.inbox = response.data.results
-      } catch (error) {
-        console.error('Erreur lors du chargement de la boîte de réception :', error)
-      }
-    },
-
-    async fetchSent() {
-      try {
-        const response = await api.get<Paginated<Message>>('/messages/sent/')
-        this.sent = response.data.results
-      } catch (error) {
-        console.error('Erreur lors du chargement des messages envoyés :', error)
-      }
-    },
-
-    async fetchAllMessages() {
-      try {
-        await Promise.all([this.fetchInbox(), this.fetchSent()])
-      } catch (error) {
-        console.error('Erreur lors du chargement des messages :', error)
-      }
-    },
-
-    async markAsRead(statusId: number) {
-      try {
-        await api.patch<void>(`/messages/message-status/${statusId}/`, { is_read: true })
-
-        const found = this.inbox.find((s) => s.id === statusId)
-        if (found) {
-          found.is_read = true
-          found.read_at = new Date().toISOString()
-        }
-      } catch (error) {
-        console.error(`Erreur lors de la mise à jour du statut ${statusId} :`, error)
-      }
-    },
-
-    async sendMessage(form: FormData) {
-      try {
-        await api.post<void>('/messages/send/', form)
-        // Optionnel : tu peux déclencher un rechargement de la boîte "sent"
-        // await this.fetchSent()
-      } catch (error) {
-        console.error('Erreur lors de l’envoi du message :', error)
-      }
-    },
   },
 })

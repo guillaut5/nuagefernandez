@@ -40,21 +40,6 @@ export interface Message {
   deleted_for_all: boolean
 }
 
-export interface MessageStatus {
-  id: number
-  message: Message
-  is_read: boolean
-  is_hidden: boolean
-  read_at: string | null
-}
-
-export interface Paginated<T> {
-  count: number
-  next: string | null
-  previous: string | null
-  results: T[]
-}
-
 export interface TokenPair {
   access: string
   refresh: string

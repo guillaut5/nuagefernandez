@@ -68,43 +68,6 @@ class MessageSendSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-# class MessageSendSerializer(serializers.ModelSerializer):
-#    sender = UserSummarySerializer(read_only=True)
-#    recipient = serializers.PrimaryKeyRelatedField(
-#        queryset=User.objects.all(), required=False, allow_null=True
-#    )
-#    recipient_group = serializers.PrimaryKeyRelatedField(
-#        queryset=Group.objects.all(), required=False, allow_null=True
-#    )
-#
-#    text = serializers.CharField(required=False, allow_blank=True)
-#    image = serializers.ImageField(required=False, allow_null=True)
-#    latitude = serializers.FloatField(required=False, allow_null=True)
-#    longitude = serializers.FloatField(required=False, allow_null=True)
-#
-#    class Meta:
-#        model = Message
-#        fields = [
-#            "id",
-#            "text",
-#            "image",
-#            "timestamp",
-#            "latitude",
-#            "longitude",
-#            "sender",
-#            "recipient",
-#            "recipient_group",
-#        ]
-#
-#    def validate(self, data):
-#        if not data.get("text") and not data.get("image"):
-#            raise serializers.ValidationError(
-#                "Un message doit contenir du texte ou une image."
-#            )
-#        return data
-#
-
-
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSummarySerializer(read_only=True)
     recipient = UserSummarySerializer(read_only=True)
@@ -129,38 +92,6 @@ class MessageSerializer(serializers.ModelSerializer):
             "recipient",
             "recipient_group",
         ]
-
-
-class MessageReadStatusSerializer(serializers.ModelSerializer):
-    """
-    Utilisé pour la LISTE : on imbrique le message.
-    """
-
-    message = MessageSerializer(read_only=True)
-
-    class Meta:
-        model = MessageReadStatus
-        fields = ["id", "message", "is_read", "is_hidden", "read_at"]
-
-
-class MessageReadStatusUpdateSerializer(serializers.ModelSerializer):
-    """
-    Utilisé pour PATCH : on ne modifie que le statut.
-    """
-
-    class Meta:
-        model = MessageReadStatus
-        fields = ["is_read", "is_hidden", "read_at"]
-        read_only_fields = ["read_at"]
-
-    def update(self, instance, validated_data):
-        # Si on passe is_read=True et qu'aucune date n'est encore enregistrée,
-        # on remplit read_at automatiquement.
-        if validated_data.get("is_read") and not instance.read_at:
-            from django.utils import timezone
-
-            instance.read_at = timezone.now()
-        return super().update(instance, validated_data)
 
 
 class MessageThreadSerializer(serializers.ModelSerializer):

@@ -10,21 +10,6 @@ const routes = [
     component: () => import('@/views/ChatView.vue'),
     meta: { requiresAuth: true },
   },
-  {
-    path: '/inbox',
-    component: () => import('@/views/InboxView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/sent',
-    component: () => import('@/views/SentView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/send',
-    component: () => import('@/views/SendMessageView.vue'),
-    meta: { requiresAuth: true },
-  },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
